@@ -243,7 +243,9 @@ typedef struct packed {
                        logic alu;
                        logic rs1;
                        logic rs2;
+                       logic rs3; // TODO: manage rs3 bit
                        logic imm12;
+                       logic rm; // TODO: manage rm bit
                        logic rd;
                        logic shimm5;
                        logic imm20;
@@ -290,6 +292,7 @@ typedef struct packed {
                        logic fence_i;
                        logic pm_alu;
                        logic legal;
+                       logic fpu;
                        } dec_pkt_t;
 
 

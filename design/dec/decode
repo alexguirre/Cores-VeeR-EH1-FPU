@@ -117,6 +117,26 @@ rem =        [0000001..........110.....0110011]
 remu =       [0000001..........111.....0110011]
 
 
+# F extension
+flw =        [.................010.....0000111]
+fsw =        [.................010.....0100111]
+fmadd =      [.....00..................1000011]
+fmsub =      [.....00..................1000111]
+fnmsub =     [.....00..................1001011]
+fnmadd =     [.....00..................1001111]
+fadd =       [0000000..................1010011]
+fsub =       [0000100..................1010011]
+fmul =       [0001000..................1010011]
+fdiv =       [0001100..................1010011]
+fsqrt =      [010110000000.............1010011]
+fsgnj =      [0010000..........000.....1010011]
+fsgnjn =     [0010000..........001.....1010011]
+fsgnjx =     [0010000..........010.....1010011]
+fmin =       [0010100..........000.....1010011]
+fmax =       [0010100..........001.....1010011]
+
+
+
 .input
 
 rv32i = {
@@ -161,7 +181,9 @@ rv32i = {
       alu
       rs1
       rs2
+      rs3
       imm12
+      rm
       rd
       shimm5
       imm20
@@ -207,6 +229,7 @@ rv32i = {
       fence
       fence_i
       pm_alu
+      fpu
 }
 
 .decode
@@ -316,6 +339,25 @@ rv32i[csrrwi{0-4}] =         { alu rd csr_read rs1 csr_write csr_imm lor presync
 rv32i[csrw] =                { alu rd rs1 csr_write           }
 
 rv32i[csrwi]       =         { alu rd     csr_write csr_imm   }
+
+
+# F extension
+rv32i[flw] =       { fpu }
+rv32i[fsw] =       { fpu }
+rv32i[fmadd] =     { fpu rs3 rs2 rs1 rm rd }
+rv32i[fmsub] =     { fpu rs3 rs2 rs1 rm rd }
+rv32i[fnmsub] =    { fpu rs3 rs2 rs1 rm rd }
+rv32i[fnmadd] =    { fpu rs3 rs2 rs1 rm rd }
+rv32i[fadd] =      { fpu rs2 rs1 rm rd }
+rv32i[fsub] =      { fpu rs2 rs1 rm rd }
+rv32i[fmul] =      { fpu rs2 rs1 rm rd }
+rv32i[fdiv] =      { fpu rs2 rs1 rm rd }
+rv32i[fsqrt] =     { fpu rs1 rm rd }
+rv32i[fsgnj] =     { fpu rs2 rs1 rd }
+rv32i[fsgnjn] =    { fpu rs2 rs1 rd }
+rv32i[fsgnjx] =    { fpu rs2 rs1 rd }
+rv32i[fmin] =      { fpu rs2 rs1 rd }
+rv32i[fmax] =      { fpu rs2 rs1 rd }
 
 
 .end
