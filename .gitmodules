@@ -1,0 +1,3 @@
+[submodule "vendor/cvfpu"]
+	path = vendor/cvfpu
+	url = git@github.com:openhwgroup/cvfpu.git
