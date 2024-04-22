@@ -71,7 +71,7 @@ VPATH = $(TEST_DIR) $(BUILD_DIR) $(TBDIR)
 TBFILES = $(TBDIR)/tb_top.sv $(TBDIR)/ahb_sif.sv
 
 defines = $(BUILD_DIR)/common_defines.vh ${RV_ROOT}/design/include/veer_types.sv
-includes = -I${RV_ROOT}/design/include -I${RV_ROOT}/design/lib  -I${BUILD_DIR}
+includes = -I${RV_ROOT}/design/include -I${RV_ROOT}/design/lib -I${RV_ROOT}/vendor/cvfpu/src/common_cells/include -I${BUILD_DIR}
 
 # CFLAGS for verilator generated Makefiles. Without -std=c++11 it complains for `auto` variables
 CFLAGS += "-std=c++11"
@@ -93,10 +93,13 @@ ${BUILD_DIR}/defines.h :
 
 ##################### Verilog Builds #####################################
 
+# TODO: added -Wno-WIDTH and -Wno-LITENDIAN because cvfpu complains. Investigate
 verilator-build: ${TBFILES} ${BUILD_DIR}/defines.h test_tb_top.cpp
 	echo '`undef ASSERT_ON' >> ${BUILD_DIR}/common_defines.vh
 	$(VERILATOR) --cc -CFLAGS ${CFLAGS} $(defines) $(includes) \
                 -Wno-UNOPTFLAT \
+								-Wno-WIDTH \
+								-Wno-LITENDIAN \
                 -I${RV_ROOT}/testbench \
 		-f ${RV_ROOT}/testbench/flist \
                 ${TBFILES} \
