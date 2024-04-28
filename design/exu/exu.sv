@@ -131,6 +131,8 @@ module exu
 
    input div_pkt_t  div_p,                                             // DEC {valid, unsigned, rem}
 
+   input fpu_pkt_t  fpu_p,
+
    input logic   dec_i0_lsu_d,                                         // Bypass control for LSU operand bus
    input logic   dec_i1_lsu_d,                                         // Bypass control for LSU operand bus
 
@@ -150,6 +152,10 @@ module exu
    output logic exu_div_finish,                                        // Divide is finished
    output logic exu_div_stall,                                         // Divide is running
    output logic [31:1] exu_npc_e4,                                     // Divide NPC
+
+   output logic [31:0]  exu_fpu_result,                                // FPU result
+   output logic exu_fpu_finish,                                        // FPU is finished
+   output logic exu_fpu_stall,                                         // FPU is running
 
    output logic exu_i0_flush_lower_e4,                                 // to TLU - lower branch flush
    output logic exu_i1_flush_lower_e4,                                 // to TLU - lower branch flush
@@ -224,6 +230,8 @@ module exu
    logic [31:0]  mul_rs1_d, mul_rs2_d;
 
    logic [31:0]  div_rs1_d, div_rs2_d;
+
+   logic [31:0]  fpu_rs1_d, fpu_rs2_d, fpu_rs3_d;
 
    logic        i1_valid_e2;
    logic [31:1] npc_e4;
@@ -367,6 +375,16 @@ module exu
                           .finish_early  ( div_finish_early            ),   // O
                           .finish        ( exu_div_finish              ),   // O
                           .out           ( exu_div_result[31:0]        ));  // O
+
+
+   exu_fpu_ctl fpu_e1    (.*,
+                          .fp            ( fpu_p                       ),   // I
+                          .a             ( fpu_rs1_d[31:0]             ),   // I
+                          .b             ( fpu_rs2_d[31:0]             ),   // I
+                          .c             ( fpu_rs3_d[31:0]             ),   // I
+                          .fpu_stall     ( exu_fpu_stall               ),   // O
+                          .finish        ( exu_fpu_finish              ),   // O
+                          .out           ( exu_fpu_result[31:0]        ));  // O
 
 
    predict_pkt_t i0_predict_newp_d, i1_predict_newp_d;

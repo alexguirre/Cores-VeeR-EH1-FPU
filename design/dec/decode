@@ -134,6 +134,16 @@ fsgnjn =     [0010000..........001.....1010011]
 fsgnjx =     [0010000..........010.....1010011]
 fmin =       [0010100..........000.....1010011]
 fmax =       [0010100..........001.....1010011]
+fcvt_w_s =   [110000000000.............1010011]
+fcvt_wu_s =  [110000000001.............1010011]
+fmv_x_w =    [111000000000.....000.....1010011]
+feq =        [1010000..........010.....1010011]
+flt =        [1010000..........001.....1010011]
+fle =        [1010000..........000.....1010011]
+fclass =     [111000000000.....001.....1010011]
+fcvt_s_w =   [110100000000.............1010011]
+fcvt_s_wu =  [110100000001.............1010011]
+fmv_w_x =    [111100000000.....000.....1010011]
 
 
 
@@ -230,6 +240,28 @@ rv32i = {
       fence_i
       pm_alu
       fpu
+      fp_load
+      fp_store
+      fp_madd
+      fp_msub
+      fp_nmsub
+      fp_nmadd
+      fp_add
+      fp_sub
+      fp_mul
+      fp_div
+      fp_sqrt
+      fp_sgnj
+      fp_sgnjn
+      fp_sgnjx
+      fp_min
+      fp_max
+      fp_cvt
+      fp_mv
+      fp_eq
+      fp_lt
+      fp_le
+      fp_class
 }
 
 .decode
@@ -342,22 +374,32 @@ rv32i[csrwi]       =         { alu rd     csr_write csr_imm   }
 
 
 # F extension
-rv32i[flw] =       { fpu }
-rv32i[fsw] =       { fpu }
-rv32i[fmadd] =     { fpu rs3 rs2 rs1 rm rd }
-rv32i[fmsub] =     { fpu rs3 rs2 rs1 rm rd }
-rv32i[fnmsub] =    { fpu rs3 rs2 rs1 rm rd }
-rv32i[fnmadd] =    { fpu rs3 rs2 rs1 rm rd }
-rv32i[fadd] =      { fpu rs2 rs1 rm rd }
-rv32i[fsub] =      { fpu rs2 rs1 rm rd }
-rv32i[fmul] =      { fpu rs2 rs1 rm rd }
-rv32i[fdiv] =      { fpu rs2 rs1 rm rd }
-rv32i[fsqrt] =     { fpu rs1 rm rd }
-rv32i[fsgnj] =     { fpu rs2 rs1 rd }
-rv32i[fsgnjn] =    { fpu rs2 rs1 rd }
-rv32i[fsgnjx] =    { fpu rs2 rs1 rd }
-rv32i[fmin] =      { fpu rs2 rs1 rd }
-rv32i[fmax] =      { fpu rs2 rs1 rd }
+rv32i[flw] =       { fpu fp_load }
+rv32i[fsw] =       { fpu fp_store }
+rv32i[fmadd] =     { fpu fp_madd rs3 rs2 rs1 rm rd }
+rv32i[fmsub] =     { fpu fp_msub rs3 rs2 rs1 rm rd }
+rv32i[fnmsub] =    { fpu fp_nmsub rs3 rs2 rs1 rm rd }
+rv32i[fnmadd] =    { fpu fp_nmadd rs3 rs2 rs1 rm rd }
+rv32i[fadd] =      { fpu fp_add rs2 rs1 rm rd }
+rv32i[fsub] =      { fpu fp_sub rs2 rs1 rm rd }
+rv32i[fmul] =      { fpu fp_mul rs2 rs1 rm rd }
+rv32i[fdiv] =      { fpu fp_div rs2 rs1 rm rd }
+rv32i[fsqrt] =     { fpu fp_sqrt rs1 rm rd }
+rv32i[fsgnj] =     { fpu fp_sgnj rs2 rs1 rd }
+rv32i[fsgnjn] =    { fpu fp_sgnjn rs2 rs1 rd }
+rv32i[fsgnjx] =    { fpu fp_sgnjx rs2 rs1 rd }
+rv32i[fmin] =      { fpu fp_min rs2 rs1 rd }
+rv32i[fmax] =      { fpu fp_max rs2 rs1 rd }
+rv32i[fcvt_w_s] =  { fpu fp_cvt rs1 rm rd }
+rv32i[fcvt_wu_s] = { fpu fp_cvt rs1 rm rd }
+rv32i[fmv_x_w] =   { fpu fp_mv rs1 rd }
+rv32i[feq] =       { fpu fp_eq rs2 rs1 rd }
+rv32i[flt] =       { fpu fp_lt rs2 rs1 rd }
+rv32i[fle] =       { fpu fp_le rs2 rs1 rd }
+rv32i[fclass] =    { fpu fp_class rs1 rd }
+rv32i[fcvt_s_w] =  { fpu fp_cvt rs1 rm rd }
+rv32i[fcvt_s_wu] = { fpu fp_cvt rs1 rm rd }
+rv32i[fmv_w_x] =   { fpu fp_mv rs1 rd }
 
 
 .end

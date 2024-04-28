@@ -72,6 +72,9 @@ csr_perfvf =        [10111001....]
 csr_perfvg =        [001100100111]
 csr_perfvh =        [001100101...]
 csr_perfvi =        [00110011....]
+csr_fflags =        [000000000001]
+csr_frm =           [000000000010]
+csr_fcsr =          [000000000011]
 
 .input
 
@@ -167,6 +170,9 @@ csr_dicago
      valid_only
      presync
      postsync
+csr_fflags
+csr_frm
+csr_fcsr
 }
 
 .decode
@@ -243,5 +249,9 @@ csr[ csr_perfvf    ] = { valid_only }
 csr[ csr_perfvg    ] = { valid_only }
 csr[ csr_perfvh    ] = { valid_only }
 csr[ csr_perfvi    ] = { valid_only }
+
+csr[ csr_fflags    ] = { csr_fflags postsync }
+csr[ csr_frm       ] = { csr_frm    postsync }
+csr[ csr_fcsr      ] = { csr_fcsr   postsync }
 
 .end

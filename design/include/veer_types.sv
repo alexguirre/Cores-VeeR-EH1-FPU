@@ -183,6 +183,7 @@ typedef struct packed {
 typedef struct packed {
                        logic [4:0] rs1;
                        logic [4:0] rs2;
+                       logic [4:0] rs3;
                        logic [4:0] rd;
                        } reg_pkt_t;
 
@@ -240,12 +241,13 @@ typedef struct packed {
                       } lsu_error_pkt_t;
 
 typedef struct packed {
+                       logic legal;
                        logic alu;
                        logic rs1;
                        logic rs2;
-                       logic rs3; // TODO: manage rs3 bit
+                       logic rs3;
                        logic imm12;
-                       logic rm; // TODO: manage rm bit
+                       logic rm;
                        logic rd;
                        logic shimm5;
                        logic imm20;
@@ -291,8 +293,29 @@ typedef struct packed {
                        logic fence;
                        logic fence_i;
                        logic pm_alu;
-                       logic legal;
                        logic fpu;
+                       logic fp_load;
+                       logic fp_store;
+                       logic fp_madd;
+                       logic fp_msub;
+                       logic fp_nmsub;
+                       logic fp_nmadd;
+                       logic fp_add;
+                       logic fp_sub;
+                       logic fp_mul;
+                       logic fp_div;
+                       logic fp_sqrt;
+                       logic fp_sgnj;
+                       logic fp_sgnjn;
+                       logic fp_sgnjx;
+                       logic fp_min;
+                       logic fp_max;
+                       logic fp_cvt;
+                       logic fp_mv;
+                       logic fp_eq;
+                       logic fp_lt;
+                       logic fp_le;
+                       logic fp_class;
                        } dec_pkt_t;
 
 
@@ -310,6 +333,34 @@ typedef struct packed {
                        logic unsign;
                        logic rem;
                        } div_pkt_t;
+
+
+typedef struct packed {
+                       logic       valid;
+                       logic       load;
+                       logic       store;
+                       logic       madd;
+                       logic       msub;
+                       logic       nmsub;
+                       logic       nmadd;
+                       logic       add;
+                       logic       sub;
+                       logic       mul;
+                       logic       div;
+                       logic       sqrt;
+                       logic       sgnj;
+                       logic       sgnjn;
+                       logic       sgnjx;
+                       logic       min;
+                       logic       max;
+                       logic       cvt;
+                       logic       mv;
+                       logic       eq;
+                       logic       lt;
+                       logic       le;
+                       logic       class_;
+                       logic [2:0] rm; // rounding mode
+                       } fpu_pkt_t;
 
 
 typedef struct packed {

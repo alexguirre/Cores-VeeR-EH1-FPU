@@ -143,6 +143,10 @@ module dec
    input logic [31:0]  exu_div_result,      // final div result
    input logic exu_div_finish,              // cycle div finishes
 
+   input logic exu_fpu_stall,               // stall decode for FPU executing
+   input logic [31:0]  exu_fpu_result,      // final FPU result
+   input logic exu_fpu_finish,              // cycle FPU finishes
+
    input logic [31:0] exu_mul_result_e3,    // 32b mul result
 
    input logic [31:0] exu_csr_rs1_e1,       // rs1 for csr instruction
@@ -260,6 +264,11 @@ module dec
    output logic  [31:0] gpr_i1_rs1_d,
    output logic  [31:0] gpr_i1_rs2_d,
 
+   output logic  [31:0] fpr_i0_rs1_d,               // fpr rs1 data
+   output logic  [31:0] fpr_i0_rs2_d,               // fpr rs2 data
+   output logic  [31:0] fpr_i1_rs1_d,
+   output logic  [31:0] fpr_i1_rs2_d,
+
    output logic [31:0] dec_i0_immed_d,              // immediate data
    output logic [31:0] dec_i1_immed_d,
 
@@ -291,6 +300,7 @@ module dec
    output lsu_pkt_t    lsu_p,                      // lsu packet
    output mul_pkt_t    mul_p,                      // mul packet
    output div_pkt_t    div_p,                      // div packet
+   output fpu_pkt_t    fpu_p,                      // floating-point packet
 
    output logic [11:0] dec_lsu_offset_d,           // 12b offset for load/store addresses
    output logic        dec_i0_lsu_d,               // is load/store
@@ -432,6 +442,19 @@ module dec
    logic [4:0]  dec_i1_rs1_d;
    logic [4:0]  dec_i1_rs2_d;
 
+   logic        dec_i0_frs1_en_d;
+   logic        dec_i0_frs2_en_d;
+
+   logic [4:0]  dec_i0_frs1_d;
+   logic [4:0]  dec_i0_frs2_d;
+
+
+   logic        dec_i1_frs1_en_d;
+   logic        dec_i1_frs2_en_d;
+
+   logic [4:0]  dec_i1_frs1_d;
+   logic [4:0]  dec_i1_frs2_d;
+
 
    logic [31:0] dec_i0_instr_d, dec_i1_instr_d;
 
@@ -533,6 +556,24 @@ module dec
                     // outputs
                     .rd0(gpr_i0_rs1_d[31:0]), .rd1(gpr_i0_rs2_d[31:0]),
                     .rd2(gpr_i1_rs1_d[31:0]), .rd3(gpr_i1_rs2_d[31:0])
+                    );
+
+
+   dec_fpr_ctl #(.GPR_BANKS(GPR_BANKS),
+                 .GPR_BANKS_LOG2(GPR_BANKS_LOG2)) arf_fp (.*,
+                    // inputs
+                    .raddr0(dec_i0_frs1_d[4:0]), .rden0(dec_i0_frs1_en_d),
+                    .raddr1(dec_i0_frs2_d[4:0]), .rden1(dec_i0_frs2_en_d),
+                    .raddr2(dec_i1_frs1_d[4:0]), .rden2(dec_i1_frs1_en_d),
+                    .raddr3(dec_i1_frs2_d[4:0]), .rden3(dec_i1_frs2_en_d),
+
+                    .waddr0(dec_i0_waddr_wb[4:0]),         .wen0(dec_i0_wen_wb),         .wd0(dec_i0_wdata_wb[31:0]),
+                    .waddr1(dec_i1_waddr_wb[4:0]),         .wen1(dec_i1_wen_wb),         .wd1(dec_i1_wdata_wb[31:0]),
+                    .waddr2(dec_nonblock_load_waddr[4:0]), .wen2(dec_nonblock_load_wen), .wd2(lsu_nonblock_load_data[31:0]),
+
+                    // outputs
+                    .rd0(fpr_i0_rs1_d[31:0]), .rd1(fpr_i0_rs2_d[31:0]),
+                    .rd2(fpr_i1_rs1_d[31:0]), .rd3(fpr_i1_rs2_d[31:0])
                     );
 
 // Trigger

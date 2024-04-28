@@ -41,6 +41,23 @@ _start:
     li x1, 0x5f555555
     csrw 0x7c0, x1
 
+    // Floating-point example instruction
+    li x4, 0xDEADBEEF
+    fscsr x4
+
+    la x4, value1
+    flw f1, 0(x4)
+    la x4, value2
+    flw f2, 0(x4)
+    fadd.s f0, f1, f2
+    fsub.s f0, f1, f2
+    fmul.s f0, f1, f2
+    fdiv.s f0, f1, f2
+    la x4, value_result
+    fsw f0, 0(x4)
+
+    frcsr x4
+
     // Load string from hw_data
     // and write to stdout address
 
@@ -66,7 +83,13 @@ _finish:
 .global hw_data
 .data
 hw_data:
-.ascii "-------------------------\n"
-.ascii "Hello World from VeeR EH1\n"
-.ascii "-------------------------\n"
+.ascii "------------------------------------\n"
+.ascii "Hello World from VeeR EH1 (with FPU)\n"
+.ascii "------------------------------------\n"
 .byte 0
+value1:
+.float 1.23
+value2:
+.float 4.56
+value_result:
+.float 0.0

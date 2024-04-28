@@ -82,6 +82,10 @@ module dec_decode_ctl
    input logic exu_div_stall,                         // div executing: stall decode
    input logic [31:0] exu_div_result,                 // div result
 
+   input logic exu_fpu_finish,                        // FPU finish this cycle
+   input logic exu_fpu_stall,                         // FPU executing: stall decode
+   input logic [31:0] exu_fpu_result,                 // FPU result
+
    input logic dec_tlu_i0_kill_writeb_wb,    // I0 is flushed, don't writeback any results to arch state
    input logic dec_tlu_i1_kill_writeb_wb,    // I1 is flushed, don't writeback any results to arch state
 
@@ -135,6 +139,12 @@ module dec_decode_ctl
    output logic [4:0] dec_i0_rs1_d,        // rs1 logical source
    output logic [4:0] dec_i0_rs2_d,
 
+   output logic         dec_i0_frs1_en_d,   // floating-point rs1 enable at decode
+   output logic         dec_i0_frs2_en_d,
+
+   output logic [4:0] dec_i0_frs1_d,        // rs1 logical source
+   output logic [4:0] dec_i0_frs2_d,
+
 
 
    output logic [31:0] dec_i0_immed_d,     // 32b immediate data decode
@@ -145,6 +155,11 @@ module dec_decode_ctl
    output logic [4:0]  dec_i1_rs1_d,
    output logic [4:0]  dec_i1_rs2_d,
 
+   output logic          dec_i1_frs1_en_d,
+   output logic          dec_i1_frs2_en_d,
+
+   output logic [4:0]  dec_i1_frs1_d,
+   output logic [4:0]  dec_i1_frs2_d,
 
 
    output logic [31:0] dec_i1_immed_d,
@@ -192,6 +207,8 @@ module dec_decode_ctl
    output mul_pkt_t    mul_p,                   // multiply packet
 
    output div_pkt_t    div_p,                   // divide packet
+
+   output fpu_pkt_t    fpu_p,                   // floating-point unit packet
 
    output logic [11:0] dec_lsu_offset_d,
    output logic        dec_i0_lsu_d,        // chose which gpr value to use
@@ -344,6 +361,9 @@ module dec_decode_ctl
    logic [31:1]        div_pc;
    logic               div_stall, div_stall_ff;
    logic [3:0]         div_trigger;
+
+   logic               fpu_decode_d;
+   logic               fpu_stall, fpu_stall_ff;
 
    logic               i0_legal;
    logic               shift_illegal;
@@ -1111,16 +1131,57 @@ end : cam_array
 
    assign lsu_p.unsign = (i0_dp.lsu) ? i0_dp.unsign : i1_dp.unsign;
 
+
+   assign fpu_p.valid = fpu_decode_d;
+
+   assign fpu_p.load =   (i0_dp.fpu) ? i0_dp.fp_load :  i1_dp.fp_load;
+   assign fpu_p.store =  (i0_dp.fpu) ? i0_dp.fp_store : i1_dp.fp_store;
+   assign fpu_p.madd =   (i0_dp.fpu) ? i0_dp.fp_madd :  i1_dp.fp_madd;
+   assign fpu_p.msub =   (i0_dp.fpu) ? i0_dp.fp_msub :  i1_dp.fp_msub;
+   assign fpu_p.nmsub =  (i0_dp.fpu) ? i0_dp.fp_nmsub : i1_dp.fp_nmsub;
+   assign fpu_p.nmadd =  (i0_dp.fpu) ? i0_dp.fp_nmadd : i1_dp.fp_nmadd;
+   assign fpu_p.add =    (i0_dp.fpu) ? i0_dp.fp_add :   i1_dp.fp_add;
+   assign fpu_p.sub =    (i0_dp.fpu) ? i0_dp.fp_sub :   i1_dp.fp_sub;
+   assign fpu_p.mul =    (i0_dp.fpu) ? i0_dp.fp_mul :   i1_dp.fp_mul;
+   assign fpu_p.div =    (i0_dp.fpu) ? i0_dp.fp_div :   i1_dp.fp_div;
+   assign fpu_p.sqrt =   (i0_dp.fpu) ? i0_dp.fp_sqrt :  i1_dp.fp_sqrt;
+   assign fpu_p.sgnj =   (i0_dp.fpu) ? i0_dp.fp_sgnj :  i1_dp.fp_sgnj;
+   assign fpu_p.sgnjn =  (i0_dp.fpu) ? i0_dp.fp_sgnjn : i1_dp.fp_sgnjn;
+   assign fpu_p.sgnjx =  (i0_dp.fpu) ? i0_dp.fp_sgnjx : i1_dp.fp_sgnjx;
+   assign fpu_p.min =    (i0_dp.fpu) ? i0_dp.fp_min :   i1_dp.fp_min;
+   assign fpu_p.max =    (i0_dp.fpu) ? i0_dp.fp_max :   i1_dp.fp_max;
+   assign fpu_p.cvt =    (i0_dp.fpu) ? i0_dp.fp_cvt :   i1_dp.fp_cvt;
+   assign fpu_p.mv =     (i0_dp.fpu) ? i0_dp.fp_mv :    i1_dp.fp_mv;
+   assign fpu_p.eq =     (i0_dp.fpu) ? i0_dp.fp_eq :    i1_dp.fp_eq;
+   assign fpu_p.lt =     (i0_dp.fpu) ? i0_dp.fp_lt :    i1_dp.fp_lt;
+   assign fpu_p.le =     (i0_dp.fpu) ? i0_dp.fp_le :    i1_dp.fp_le;
+   assign fpu_p.class_ = (i0_dp.fpu) ? i0_dp.fp_class : i1_dp.fp_class;
+   assign fpu_p.rm =     (i0_dp.fpu) ? i0[11:7] : i1[11:7];
+
+   always begin
+     if (fpu_p.valid) begin
+       $display("fpu_p.load = %0d", fpu_p.load);
+       $display("fpu_p.store = %0d", fpu_p.store);
+       $display("fpu_p.add = %0d", fpu_p.add);
+       $display("fpu_p.sub = %0d", fpu_p.sub);
+       $display("fpu_p.mul = %0d", fpu_p.mul);
+       $display("fpu_p.div = %0d\n", fpu_p.div);
+
+     end
+   end
+
    // defined register packet
 
 
 
    assign i0r.rs1[4:0] = i0[19:15];
    assign i0r.rs2[4:0] = i0[24:20];
+   assign i0r.rs3[4:0] = i0[31:27];
    assign i0r.rd[4:0] = i0[11:7];
 
    assign i1r.rs1[4:0] = i1[19:15];
    assign i1r.rs2[4:0] = i1[24:20];
+   assign i1r.rs3[4:0] = i1[31:27];
    assign i1r.rd[4:0] = i1[11:7];
 
 
@@ -1131,6 +1192,17 @@ end : cam_array
    assign dec_i0_rs1_d[4:0] = i0r.rs1[4:0];
    assign dec_i0_rs2_d[4:0] = i0r.rs2[4:0];
    assign i0_rd_d[4:0] = i0r.rd[4:0];
+
+
+   assign dec_i0_frs1_en_d = i0_dp.fpu & i0_dp.rs1;
+   assign dec_i0_frs2_en_d = i0_dp.fpu & i0_dp.rs2;
+   //TODO rs3
+   //TODO:assign i0_rd_en_d =  i0_dp.rd & (i0r.rd[4:0] != 5'd0);
+
+   assign dec_i0_frs1_d[4:0] = i0r.rs1[4:0];
+   assign dec_i0_frs2_d[4:0] = i0r.rs2[4:0];
+   //TODO rs3
+   //TODO:assign i0_rd_d[4:0] = i0r.rd[4:0];
 
 
    assign i0_jalimm20 = i0_dp.jal & i0_dp.imm20;   // jal
@@ -1152,6 +1224,10 @@ end : cam_array
    assign i0_csr_write_only_d = i0_csr_write & ~i0_dp.csr_read;
 
    assign dec_csr_wen_unq_d = (i0_dp.csr_clr | i0_dp.csr_set | i0_csr_write);   // for csr legal, can't write read-only csr
+   //always begin
+    //if (dec_csr_wen_unq_d) $display("[%X] dec_csr_wen_unq_d=%0d", dec_i0_pc_wb1, dec_csr_wen_unq_d);
+   //end
+                               // TODO: allow writing to FFLAGS/FRM | i0_dp.csr_fflags | i0_dp.csr_frm
 
    assign dec_csr_any_unq_d = any_csr_d;
 
@@ -1429,7 +1505,7 @@ end : cam_array
 
     rvdffs #(1) postsync_stallff (.*, .clk(free_clk), .en(~freeze), .din(ps_stall_in), .dout(ps_stall));
 
-   assign postsync_stall = (ps_stall | div_stall);
+   assign postsync_stall = (ps_stall | div_stall | fpu_stall);
 
 
 
@@ -1474,6 +1550,9 @@ end : cam_array
 
    assign div_decode_d = (i0_legal_decode_d & i0_dp.div) |
                          (dec_i1_decode_d & i1_dp.div);
+
+   assign fpu_decode_d = (i0_legal_decode_d & i0_dp.fpu) |
+                         (dec_i1_decode_d & i1_dp.fpu);
 
 
 
@@ -2250,6 +2329,13 @@ end : cam_array
    rvdff  #(1) divwbff (.*, .clk(active_clk), .din(exu_div_finish), .dout(div_wen_wb));
 
 
+
+   assign fpu_stall = exu_fpu_stall | fpu_stall_ff;   // hold for 1 extra cycle so wb can happen before next inst
+
+   rvdff  #(1) fpustallff (.*, .clk(active_clk), .din(exu_fpu_stall), .dout(fpu_stall_ff));
+
+
+
    assign i0_result_e1[31:0] = exu_i0_result_e1[31:0];
    assign i1_result_e1[31:0] = exu_i1_result_e1[31:0];
 
@@ -2508,24 +2594,23 @@ module dec_dec_ctl
 assign out.alu = (!i[6]&i[3]) | (!i[25]&i[5]&i[4]) | (!i[6]&!i[5]&i[4]) | (i[6]&i[5]) | (
     i[4]&i[2]);
 
-assign out.rs1 = (!i[14]&!i[13]&i[5]&!i[2]) | (!i[13]&i[11]&i[5]&!i[2]) | (i[19]
-    &i[13]&i[5]&!i[2]) | (!i[13]&i[10]&i[5]&!i[2]) | (i[18]&i[13]&i[5]
-    &!i[2]) | (i[6]&!i[5]&i[3]) | (!i[13]&i[9]&i[5]&!i[2]) | (i[17]&i[13]
-    &i[5]&!i[2]) | (!i[13]&i[8]&i[5]&!i[2]) | (i[16]&i[13]&i[5]&!i[2]) | (
-    !i[13]&i[7]&i[5]&!i[2]) | (i[15]&i[13]&i[5]&!i[2]) | (!i[5]&!i[4]
-    &!i[3]) | (i[6]&!i[4]&!i[3]) | (!i[6]&!i[2]);
+assign out.rs1 = (!i[14]&!i[13]&!i[2]) | (!i[13]&i[11]&!i[2]) | (i[19]&i[13]&!i[2]) | (
+    !i[13]&i[10]&!i[2]) | (i[18]&i[13]&!i[2]) | (!i[13]&i[9]&!i[2]) | (
+    i[17]&i[13]&!i[2]) | (!i[13]&i[8]&!i[2]) | (i[16]&i[13]&!i[2]) | (
+    !i[13]&i[7]&!i[2]) | (i[15]&i[13]&!i[2]) | (i[6]&!i[4]&!i[3]) | (
+    !i[6]&!i[2]) | (i[6]&!i[5]);
 
-assign out.rs2 = (i[5]&!i[4]&!i[2]) | (i[6]&!i[5]&!i[4]) | (!i[6]&i[5]&!i[2]);
+assign out.rs2 = (i[6]&!i[5]&!i[4]) | (i[5]&!i[4]&!i[2]) | (!i[30]&i[6]&!i[5]) | (
+    !i[6]&i[5]&!i[2]);
 
 assign out.rs3 = (i[6]&!i[5]&!i[4]);
 
-assign out.imm12 = (i[6]&i[5]&!i[3]&i[2]) | (i[13]&!i[6]&!i[5]&i[4]&!i[2]) | (!i[6]
-    &!i[5]&!i[4]&!i[3]&i[2]) | (!i[13]&!i[12]&i[6]&i[5]&i[4]) | (!i[12]
-    &!i[6]&!i[5]&i[4]&!i[2]);
+assign out.imm12 = (i[6]&i[5]&!i[3]&i[2]) | (i[13]&!i[6]&!i[5]&i[4]&!i[2]) | (!i[13]
+    &!i[12]&i[6]&i[5]&i[4]) | (!i[12]&!i[6]&!i[5]&i[4]&!i[2]);
 
-assign out.rm = (i[6]&!i[5]&!i[4]);
+assign out.rm = (!i[29]&i[6]&!i[5]) | (i[6]&!i[5]&!i[4]);
 
-assign out.rd = (i[6]&!i[5]&!i[4]) | (i[6]&i[2]) | (!i[6]&!i[5]&!i[3]) | (i[5]&i[4]);
+assign out.rd = (i[6]&i[2]) | (i[4]) | (!i[5]&!i[2]);
 
 assign out.shimm5 = (!i[13]&i[12]&!i[6]&!i[5]&i[4]&!i[2]);
 
@@ -2626,7 +2711,7 @@ assign out.ebreak = (!i[22]&i[20]&!i[13]&!i[12]&i[6]&i[5]&i[4]);
 
 assign out.ecall = (!i[21]&!i[20]&!i[13]&!i[12]&i[6]&i[5]&i[4]);
 
-assign out.mret = (i[29]&!i[13]&!i[12]&i[6]&i[5]&i[4]);
+assign out.mret = (i[21]&!i[13]&!i[12]&i[6]&i[5]&i[4]);
 
 assign out.mul = (i[25]&!i[14]&!i[6]&i[5]&i[4]&!i[2]);
 
@@ -2650,6 +2735,51 @@ assign out.pm_alu = (i[28]&i[22]&!i[13]&!i[12]&i[5]&i[4]) | (!i[6]&!i[5]&i[4]) |
 
 assign out.fpu = (!i[6]&!i[4]&!i[3]&i[2]) | (i[6]&!i[5]);
 
+assign out.fp_load = (!i[6]&!i[5]&!i[4]&!i[3]&i[2]);
+
+assign out.fp_store = (!i[6]&i[5]&!i[4]&i[2]);
+
+assign out.fp_madd = (i[6]&!i[5]&!i[4]&!i[3]&!i[2]);
+
+assign out.fp_msub = (i[6]&!i[5]&!i[3]&i[2]);
+
+assign out.fp_nmsub = (i[3]&!i[2]);
+
+assign out.fp_nmadd = (i[6]&!i[5]&i[3]&i[2]);
+
+assign out.fp_add = (!i[30]&!i[29]&!i[28]&!i[27]&i[6]&!i[5]&i[4]);
+
+assign out.fp_sub = (!i[29]&!i[28]&i[27]&i[6]&!i[5]&i[4]);
+
+assign out.fp_mul = (!i[30]&i[28]&!i[27]&i[6]&!i[5]&i[4]);
+
+assign out.fp_div = (!i[30]&i[28]&i[27]&i[6]&!i[5]&i[4]);
+
+assign out.fp_sqrt = (i[30]&i[27]&i[6]&!i[5]&i[4]);
+
+assign out.fp_sgnj = (!i[31]&i[29]&!i[27]&!i[13]&!i[12]&i[6]&!i[5]&i[4]);
+
+assign out.fp_sgnjn = (!i[31]&i[29]&!i[27]&i[12]&i[6]&!i[5]&i[4]);
+
+assign out.fp_sgnjx = (!i[31]&i[29]&i[13]&i[6]&!i[5]&i[4]);
+
+assign out.fp_min = (i[29]&i[27]&!i[12]&i[6]&!i[5]&i[4]);
+
+assign out.fp_max = (i[29]&i[27]&i[12]&i[6]&!i[5]&i[4]);
+
+assign out.fp_cvt = (i[31]&!i[29]&i[6]&!i[5]&i[4]);
+
+assign out.fp_mv = (i[30]&i[29]&!i[12]&i[6]&!i[5]&i[4]);
+
+assign out.fp_eq = (i[31]&i[29]&i[13]&i[6]&!i[5]&i[4]);
+
+assign out.fp_lt = (i[31]&!i[30]&i[12]&i[6]&!i[5]&i[4]);
+
+assign out.fp_le = (i[31]&!i[30]&!i[13]&!i[12]&i[6]&i[4]);
+
+assign out.fp_class = (i[30]&i[29]&i[12]&i[6]&!i[5]&i[4]);
+
+
 
 assign out.legal = (!i[31]&!i[30]&i[29]&i[28]&!i[27]&!i[26]&!i[25]&!i[24]&!i[23]
     &!i[22]&i[21]&!i[20]&!i[19]&!i[18]&!i[17]&!i[16]&!i[15]&!i[14]&!i[11]
@@ -2659,31 +2789,37 @@ assign out.legal = (!i[31]&!i[30]&i[29]&i[28]&!i[27]&!i[26]&!i[25]&!i[24]&!i[23]
     &!i[9]&!i[8]&!i[7]&i[6]&i[4]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[30]
     &!i[29]&!i[28]&!i[27]&!i[26]&!i[25]&!i[24]&!i[23]&!i[22]&!i[21]&!i[19]
     &!i[18]&!i[17]&!i[16]&!i[15]&!i[14]&!i[11]&!i[10]&!i[9]&!i[8]&!i[7]
-    &i[4]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[29]&i[28]&i[27]&!i[26]
-    &!i[25]&!i[24]&!i[23]&!i[22]&!i[21]&!i[20]&i[6]&!i[5]&!i[3]&!i[2]
-    &i[1]&i[0]) | (!i[31]&!i[30]&!i[28]&!i[27]&!i[26]&!i[25]&!i[14]&!i[12]
+    &i[4]&!i[3]&!i[2]&i[1]&i[0]) | (i[31]&i[29]&!i[28]&!i[27]&!i[26]
+    &!i[25]&!i[24]&!i[23]&!i[22]&!i[21]&!i[20]&!i[14]&!i[13]&i[6]&!i[5]
+    &!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[29]&i[28]&i[27]&!i[26]&!i[25]
+    &!i[24]&!i[23]&!i[22]&!i[21]&!i[20]&i[6]&!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (
+    i[31]&i[30]&!i[29]&!i[27]&!i[26]&!i[25]&!i[24]&!i[23]&!i[22]&!i[21]
+    &i[6]&!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[29]&!i[28]&!i[27]
+    &!i[26]&!i[25]&!i[14]&!i[13]&!i[12]&!i[6]&!i[3]&!i[2]&i[1]&i[0]) | (
+    !i[31]&!i[30]&!i[29]&!i[28]&!i[27]&!i[26]&!i[25]&!i[6]&i[4]&!i[3]
+    &i[1]&i[0]) | (!i[30]&i[29]&!i[28]&!i[27]&!i[26]&!i[25]&!i[14]&!i[12]
+    &!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[30]&!i[28]&!i[26]&!i[25]
+    &!i[14]&!i[13]&i[6]&!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[29]
+    &!i[28]&!i[27]&!i[26]&!i[25]&i[14]&!i[13]&i[12]&!i[6]&i[4]&!i[3]&i[1]
+    &i[0]) | (!i[30]&i[29]&!i[28]&!i[27]&!i[26]&!i[25]&!i[14]&!i[13]&i[6]
     &!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[30]&!i[29]&!i[28]&!i[27]
-    &!i[26]&!i[25]&!i[6]&i[4]&!i[3]&i[1]&i[0]) | (!i[31]&!i[29]&!i[28]
-    &!i[27]&!i[26]&!i[25]&!i[14]&!i[13]&!i[12]&!i[6]&!i[3]&!i[2]&i[1]
-    &i[0]) | (!i[31]&!i[29]&!i[28]&!i[27]&!i[26]&!i[25]&i[14]&!i[13]
-    &i[12]&!i[6]&i[4]&!i[3]&i[1]&i[0]) | (!i[31]&!i[30]&!i[28]&!i[26]
-    &!i[25]&!i[14]&!i[13]&i[6]&!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]
-    &!i[30]&!i[29]&!i[28]&!i[27]&!i[26]&!i[6]&i[5]&i[4]&!i[3]&i[1]&i[0]) | (
-    !i[14]&!i[13]&!i[12]&i[6]&i[5]&!i[4]&i[2]&i[1]&i[0]) | (!i[31]&!i[30]
-    &!i[29]&!i[26]&!i[25]&i[6]&!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (!i[14]
-    &i[13]&!i[12]&!i[6]&!i[4]&!i[3]&i[1]&i[0]) | (i[14]&i[6]&i[5]&!i[4]
-    &!i[3]&!i[2]&i[1]&i[0]) | (!i[12]&!i[6]&!i[5]&i[4]&!i[3]&i[1]&i[0]) | (
-    i[12]&i[6]&i[5]&i[4]&!i[3]&!i[2]&i[1]&i[0]) | (!i[14]&!i[13]&i[5]
-    &!i[4]&!i[3]&!i[2]&i[1]&i[0]) | (!i[31]&!i[30]&!i[29]&!i[28]&!i[27]
-    &!i[26]&!i[25]&!i[24]&!i[23]&!i[22]&!i[21]&!i[20]&!i[19]&!i[18]&!i[17]
-    &!i[16]&!i[15]&!i[14]&!i[13]&!i[11]&!i[10]&!i[9]&!i[8]&!i[7]&!i[5]
-    &!i[4]&i[3]&i[2]&i[1]&i[0]) | (!i[31]&!i[30]&!i[29]&!i[28]&!i[19]
-    &!i[18]&!i[17]&!i[16]&!i[15]&!i[14]&!i[13]&!i[12]&!i[11]&!i[10]&!i[9]
-    &!i[8]&!i[7]&!i[6]&!i[5]&!i[4]&i[3]&i[2]&i[1]&i[0]) | (i[13]&i[6]
-    &i[5]&i[4]&!i[3]&!i[2]&i[1]&i[0]) | (!i[26]&!i[25]&i[6]&!i[5]&!i[4]
-    &i[1]&i[0]) | (!i[13]&!i[6]&!i[5]&!i[4]&!i[3]&!i[2]&i[1]&i[0]) | (
-    i[13]&!i[6]&!i[5]&i[4]&!i[3]&i[1]&i[0]) | (i[6]&i[5]&!i[4]&i[3]&i[2]
-    &i[1]&i[0]) | (!i[6]&i[4]&!i[3]&i[2]&i[1]&i[0]);
+    &!i[26]&!i[6]&i[5]&i[4]&!i[3]&i[1]&i[0]) | (!i[14]&!i[13]&!i[12]&i[6]
+    &i[5]&!i[4]&i[2]&i[1]&i[0]) | (!i[31]&!i[30]&!i[29]&!i[26]&!i[25]
+    &i[6]&!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (!i[14]&i[13]&!i[12]&!i[6]&!i[4]
+    &!i[3]&i[1]&i[0]) | (i[14]&i[6]&i[5]&!i[4]&!i[3]&!i[2]&i[1]&i[0]) | (
+    !i[12]&!i[6]&!i[5]&i[4]&!i[3]&i[1]&i[0]) | (i[12]&i[6]&i[5]&i[4]&!i[3]
+    &!i[2]&i[1]&i[0]) | (!i[14]&!i[13]&i[5]&!i[4]&!i[3]&!i[2]&i[1]&i[0]) | (
+    !i[31]&!i[30]&!i[29]&!i[28]&!i[27]&!i[26]&!i[25]&!i[24]&!i[23]&!i[22]
+    &!i[21]&!i[20]&!i[19]&!i[18]&!i[17]&!i[16]&!i[15]&!i[14]&!i[13]&!i[11]
+    &!i[10]&!i[9]&!i[8]&!i[7]&!i[5]&!i[4]&i[3]&i[2]&i[1]&i[0]) | (!i[31]
+    &!i[30]&!i[29]&!i[28]&!i[19]&!i[18]&!i[17]&!i[16]&!i[15]&!i[14]&!i[13]
+    &!i[12]&!i[11]&!i[10]&!i[9]&!i[8]&!i[7]&!i[6]&!i[5]&!i[4]&i[3]&i[2]
+    &i[1]&i[0]) | (i[31]&i[30]&!i[27]&!i[26]&!i[25]&!i[24]&!i[23]&!i[22]
+    &!i[21]&!i[20]&!i[14]&!i[13]&!i[12]&!i[5]&!i[3]&!i[2]&i[1]&i[0]) | (
+    i[13]&i[6]&i[5]&i[4]&!i[3]&!i[2]&i[1]&i[0]) | (!i[26]&!i[25]&i[6]
+    &!i[5]&!i[4]&i[1]&i[0]) | (!i[13]&!i[6]&!i[5]&!i[4]&!i[3]&!i[2]&i[1]
+    &i[0]) | (i[13]&!i[6]&!i[5]&i[4]&!i[3]&i[1]&i[0]) | (i[6]&i[5]&!i[4]
+    &i[3]&i[2]&i[1]&i[0]) | (!i[6]&i[4]&!i[3]&i[2]&i[1]&i[0]);
 
 
 endmodule

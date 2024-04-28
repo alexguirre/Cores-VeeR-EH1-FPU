@@ -602,6 +602,11 @@ module veer
    logic  [31:0] gpr_i1_rs1_d;
    logic  [31:0] gpr_i1_rs2_d;
 
+   logic  [31:0] fpr_i0_rs1_d;
+   logic  [31:0] fpr_i0_rs2_d;
+   logic  [31:0] fpr_i1_rs1_d;
+   logic  [31:0] fpr_i1_rs2_d;
+
    logic [31:0] i0_rs1_bypass_data_d;
    logic [31:0] i0_rs2_bypass_data_d;
    logic [31:0] i1_rs1_bypass_data_d;
@@ -730,6 +735,13 @@ module veer
 
    logic dec_i0_div_d;
    logic dec_i1_div_d;
+
+
+   fpu_pkt_t  fpu_p;
+
+   logic [31:0] exu_fpu_result;
+   logic exu_fpu_finish;
+   logic exu_fpu_stall;
 
 
    logic [15:0] ifu_illegal_inst;

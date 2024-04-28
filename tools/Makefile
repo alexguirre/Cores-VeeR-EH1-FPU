@@ -20,7 +20,7 @@ $(error env var RV_ROOT does not point to a valid dir! Exiting!)
 endif
 
 TEST_CFLAGS = -g -O3 -funroll-all-loops
-ABI = -mabi=ilp32 -march=rv32imc
+ABI = -mabi=ilp32 -march=rv32imfc_zicsr
 
 # Allow snapshot override
 target = default
@@ -33,7 +33,7 @@ VCS = vcs
 VERILATOR = verilator
 VLOG = qverilog
 RIVIERA = riviera
-GCC_PREFIX = riscv64-unknown-elf
+GCC_PREFIX = riscv32-unknown-elf
 BUILD_DIR = snapshots/${snapshot}
 TBDIR = ${RV_ROOT}/testbench
 
@@ -94,12 +94,16 @@ ${BUILD_DIR}/defines.h :
 ##################### Verilog Builds #####################################
 
 # TODO: added -Wno-WIDTH and -Wno-LITENDIAN because cvfpu complains. Investigate
+# TODO: added -Wno-UNSIGNED because common_cells/src/rr_arb_tree.sv complains. Investigate
+# TODO: added -Wno-SELRANGE because fpnew_divsqrt_multi.sv complains. Investigate
 verilator-build: ${TBFILES} ${BUILD_DIR}/defines.h test_tb_top.cpp
 	echo '`undef ASSERT_ON' >> ${BUILD_DIR}/common_defines.vh
 	$(VERILATOR) --cc -CFLAGS ${CFLAGS} $(defines) $(includes) \
                 -Wno-UNOPTFLAT \
-								-Wno-WIDTH \
-								-Wno-LITENDIAN \
+                -Wno-WIDTH \
+                -Wno-LITENDIAN \
+                -Wno-UNSIGNED \
+                -Wno-SELRANGE \
                 -I${RV_ROOT}/testbench \
 		-f ${RV_ROOT}/testbench/flist \
                 ${TBFILES} \
