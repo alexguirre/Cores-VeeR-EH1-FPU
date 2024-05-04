@@ -150,6 +150,7 @@ typedef struct packed {
                        logic i0load;
                        logic i0store;
                        logic i0div;
+                       logic i0fpu;
                        logic i0v;
                        logic i0valid;
                        logic i0secondary;
@@ -218,6 +219,7 @@ typedef struct packed {
                        logic dword;  // for dma
                        logic load;
                        logic store;
+                       logic fp; // is floating-point load/store
                        logic unsign;
                        logic dma;    // dma pkt
                        logic store_data_bypass_c1;
@@ -294,8 +296,7 @@ typedef struct packed {
                        logic fence_i;
                        logic pm_alu;
                        logic fpu;
-                       logic fp_load;
-                       logic fp_store;
+                       logic fp_lsu;
                        logic fp_madd;
                        logic fp_msub;
                        logic fp_nmsub;
@@ -337,8 +338,6 @@ typedef struct packed {
 
 typedef struct packed {
                        logic       valid;
-                       logic       load;
-                       logic       store;
                        logic       madd;
                        logic       msub;
                        logic       nmsub;

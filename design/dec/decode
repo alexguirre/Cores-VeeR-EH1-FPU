@@ -240,8 +240,7 @@ rv32i = {
       fence_i
       pm_alu
       fpu
-      fp_load
-      fp_store
+      fp_lsu
       fp_madd
       fp_msub
       fp_nmsub
@@ -374,32 +373,32 @@ rv32i[csrwi]       =         { alu rd     csr_write csr_imm   }
 
 
 # F extension
-rv32i[flw] =       { fpu fp_load }
-rv32i[fsw] =       { fpu fp_store }
-rv32i[fmadd] =     { fpu fp_madd rs3 rs2 rs1 rm rd }
-rv32i[fmsub] =     { fpu fp_msub rs3 rs2 rs1 rm rd }
-rv32i[fnmsub] =    { fpu fp_nmsub rs3 rs2 rs1 rm rd }
-rv32i[fnmadd] =    { fpu fp_nmadd rs3 rs2 rs1 rm rd }
-rv32i[fadd] =      { fpu fp_add rs2 rs1 rm rd }
-rv32i[fsub] =      { fpu fp_sub rs2 rs1 rm rd }
-rv32i[fmul] =      { fpu fp_mul rs2 rs1 rm rd }
-rv32i[fdiv] =      { fpu fp_div rs2 rs1 rm rd }
-rv32i[fsqrt] =     { fpu fp_sqrt rs1 rm rd }
-rv32i[fsgnj] =     { fpu fp_sgnj rs2 rs1 rd }
-rv32i[fsgnjn] =    { fpu fp_sgnjn rs2 rs1 rd }
-rv32i[fsgnjx] =    { fpu fp_sgnjx rs2 rs1 rd }
-rv32i[fmin] =      { fpu fp_min rs2 rs1 rd }
-rv32i[fmax] =      { fpu fp_max rs2 rs1 rd }
-rv32i[fcvt_w_s] =  { fpu fp_cvt rs1 rm rd }
-rv32i[fcvt_wu_s] = { fpu fp_cvt rs1 rm rd }
-rv32i[fmv_x_w] =   { fpu fp_mv rs1 rd }
-rv32i[feq] =       { fpu fp_eq rs2 rs1 rd }
-rv32i[flt] =       { fpu fp_lt rs2 rs1 rd }
-rv32i[fle] =       { fpu fp_le rs2 rs1 rd }
-rv32i[fclass] =    { fpu fp_class rs1 rd }
-rv32i[fcvt_s_w] =  { fpu fp_cvt rs1 rm rd }
-rv32i[fcvt_s_wu] = { fpu fp_cvt rs1 rm rd }
-rv32i[fmv_w_x] =   { fpu fp_mv rs1 rd }
+rv32i[flw] =       { fp_lsu lsu load      rs1 rd word }
+rv32i[fsw] =       { fp_lsu lsu store rs2 rs1    word }
+rv32i[fmadd] =     { fpu fp_madd  rs3 rs2 rs1 rm rd presync postsync }
+rv32i[fmsub] =     { fpu fp_msub  rs3 rs2 rs1 rm rd presync postsync }
+rv32i[fnmsub] =    { fpu fp_nmsub rs3 rs2 rs1 rm rd presync postsync }
+rv32i[fnmadd] =    { fpu fp_nmadd rs3 rs2 rs1 rm rd presync postsync }
+rv32i[fadd] =      { fpu fp_add       rs2 rs1 rm rd presync postsync }
+rv32i[fsub] =      { fpu fp_sub       rs2 rs1 rm rd presync postsync }
+rv32i[fmul] =      { fpu fp_mul       rs2 rs1 rm rd presync postsync }
+rv32i[fdiv] =      { fpu fp_div       rs2 rs1 rm rd presync postsync }
+rv32i[fsqrt] =     { fpu fp_sqrt          rs1 rm rd presync postsync }
+rv32i[fsgnj] =     { fpu fp_sgnj      rs2 rs1    rd presync postsync }
+rv32i[fsgnjn] =    { fpu fp_sgnjn     rs2 rs1    rd presync postsync }
+rv32i[fsgnjx] =    { fpu fp_sgnjx     rs2 rs1    rd presync postsync }
+rv32i[fmin] =      { fpu fp_min       rs2 rs1    rd presync postsync }
+rv32i[fmax] =      { fpu fp_max       rs2 rs1    rd presync postsync }
+rv32i[fcvt_w_s] =  { fpu fp_cvt           rs1 rm rd presync postsync }
+rv32i[fcvt_wu_s] = { fpu fp_cvt           rs1 rm rd presync postsync }
+rv32i[fmv_x_w] =   { fpu fp_mv            rs1    rd presync postsync }
+rv32i[feq] =       { fpu fp_eq        rs2 rs1    rd presync postsync }
+rv32i[flt] =       { fpu fp_lt        rs2 rs1    rd presync postsync }
+rv32i[fle] =       { fpu fp_le        rs2 rs1    rd presync postsync }
+rv32i[fclass] =    { fpu fp_class         rs1    rd presync postsync }
+rv32i[fcvt_s_w] =  { fpu fp_cvt           rs1 rm rd presync postsync }
+rv32i[fcvt_s_wu] = { fpu fp_cvt           rs1 rm rd presync postsync }
+rv32i[fmv_w_x] =   { fpu fp_mv            rs1    rd presync postsync }
 
 
 .end

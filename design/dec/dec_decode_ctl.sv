@@ -139,11 +139,11 @@ module dec_decode_ctl
    output logic [4:0] dec_i0_rs1_d,        // rs1 logical source
    output logic [4:0] dec_i0_rs2_d,
 
-   output logic         dec_i0_frs1_en_d,   // floating-point rs1 enable at decode
-   output logic         dec_i0_frs2_en_d,
+   output logic         dec_i0_fp_rs1_en_d,   // floating-point rs1 enable at decode
+   output logic         dec_i0_fp_rs2_en_d,
 
-   output logic [4:0] dec_i0_frs1_d,        // rs1 logical source
-   output logic [4:0] dec_i0_frs2_d,
+   output logic [4:0] dec_i0_fp_rs1_d,        // rs1 logical source
+   output logic [4:0] dec_i0_fp_rs2_d,
 
 
 
@@ -155,11 +155,11 @@ module dec_decode_ctl
    output logic [4:0]  dec_i1_rs1_d,
    output logic [4:0]  dec_i1_rs2_d,
 
-   output logic          dec_i1_frs1_en_d,
-   output logic          dec_i1_frs2_en_d,
+   output logic          dec_i1_fp_rs1_en_d,
+   output logic          dec_i1_fp_rs2_en_d,
 
-   output logic [4:0]  dec_i1_frs1_d,
-   output logic [4:0]  dec_i1_frs2_d,
+   output logic [4:0]  dec_i1_fp_rs1_d,
+   output logic [4:0]  dec_i1_fp_rs2_d,
 
 
    output logic [31:0] dec_i1_immed_d,
@@ -217,6 +217,8 @@ module dec_decode_ctl
    output logic        dec_i1_mul_d,
    output logic        dec_i0_div_d,        // chose which gpr value to use
    output logic        dec_i1_div_d,
+   output logic        dec_i0_fpu_d,        // chose which gpr value to use
+   output logic        dec_i1_fpu_d,
 
    // review
    output logic        flush_final_e3,      // flush final at e3: i0  or i1
@@ -243,6 +245,7 @@ module dec_decode_ctl
    output logic [31:0] dec_illegal_inst,        // illegal inst
    output logic        dec_i1_valid_e1,         // i1 valid e1
    output logic        dec_div_decode_e4,       // i0 div e4
+   output logic        dec_fpu_decode_e4,       // i0 FPU e4
    output logic [31:1] pred_correct_npc_e2,     // npc e2 if the prediction is correct
    output logic        dec_i0_rs1_bypass_en_e3, // i0 rs1 bypass enables e3
    output logic        dec_i0_rs2_bypass_en_e3, // i1 rs1 bypass enables e3
@@ -363,7 +366,9 @@ module dec_decode_ctl
    logic [3:0]         div_trigger;
 
    logic               fpu_decode_d;
+   logic [31:1]        fpu_pc;
    logic               fpu_stall, fpu_stall_ff;
+   logic [3:0]         fpu_trigger;
 
    logic               i0_legal;
    logic               shift_illegal;
@@ -392,6 +397,7 @@ module dec_decode_ctl
    logic        i0_secondary_block_d, i1_secondary_block_d;
    logic        non_block_case_d;
    logic        i0_div_decode_d;
+   logic        i0_fpu_decode_d;
    logic [31:0] i0_result_e4_final, i1_result_e4_final;
    logic        i0_load_block_d;
    logic        i0_mul_block_d;
@@ -466,10 +472,16 @@ module dec_decode_ctl
    logic       i1_ap_pc2, i1_ap_pc4;
 
    logic        div_wen_wb;
+   logic        fpu_wen_wb;
    logic        i0_rd_en_d;
    logic        i1_rd_en_d;
    logic [4:0]  i1_rd_d;
    logic [4:0]  i0_rd_d;
+
+   logic        i0_fp_rd_en_d;
+   logic        i1_fp_rd_en_d;
+   logic [4:0]  i1_fp_rd_d;
+   logic [4:0]  i0_fp_rd_d;
 
    logic        load_ldst_bypass_c1;
    logic        load_mul_rs1_bypass_e1;
@@ -577,6 +589,7 @@ module dec_decode_ctl
    logic       e4d_i0load;
 
    logic [4:0] div_waddr_wb;
+   logic [4:0] fpu_waddr_wb;
    logic [12:1] last_br_immed_e1, last_br_immed_e2;
    logic [31:0]        i0_inst_d, i1_inst_d;
    logic [31:0]        i0_inst_e1, i1_inst_e1;
@@ -587,6 +600,7 @@ module dec_decode_ctl
    logic [31:0]        i0_inst_wb1,i1_inst_wb1;
 
    logic [31:0]        div_inst;
+   logic [31:0]        fpu_inst;
    logic [31:1] i0_pc_wb, i0_pc_wb1;
    logic [31:1]           i1_pc_wb1;
    logic [31:1] last_pc_e2;
@@ -1095,6 +1109,9 @@ end : cam_array
    assign dec_i0_div_d = i0_dp.div;
    assign dec_i1_div_d = i1_dp.div;
 
+   assign dec_i0_fpu_d = i0_dp.fpu;
+   assign dec_i1_fpu_d = i1_dp.fpu;
+
 
    assign div_p.valid = div_decode_d;
 
@@ -1116,6 +1133,7 @@ end : cam_array
 
    assign lsu_p.load =   (i0_dp.lsu) ? i0_dp.load :   i1_dp.load;
    assign lsu_p.store =  (i0_dp.lsu) ? i0_dp.store :  i1_dp.store;
+   assign lsu_p.fp =     (i0_dp.lsu) ? i0_dp.fp_lsu :   i1_dp.fp_lsu;
    assign lsu_p.by =     (i0_dp.lsu) ? i0_dp.by :     i1_dp.by;
    assign lsu_p.half =   (i0_dp.lsu) ? i0_dp.half :   i1_dp.half;
    assign lsu_p.word =   (i0_dp.lsu) ? i0_dp.word :   i1_dp.word;
@@ -1134,8 +1152,6 @@ end : cam_array
 
    assign fpu_p.valid = fpu_decode_d;
 
-   assign fpu_p.load =   (i0_dp.fpu) ? i0_dp.fp_load :  i1_dp.fp_load;
-   assign fpu_p.store =  (i0_dp.fpu) ? i0_dp.fp_store : i1_dp.fp_store;
    assign fpu_p.madd =   (i0_dp.fpu) ? i0_dp.fp_madd :  i1_dp.fp_madd;
    assign fpu_p.msub =   (i0_dp.fpu) ? i0_dp.fp_msub :  i1_dp.fp_msub;
    assign fpu_p.nmsub =  (i0_dp.fpu) ? i0_dp.fp_nmsub : i1_dp.fp_nmsub;
@@ -1158,21 +1174,8 @@ end : cam_array
    assign fpu_p.class_ = (i0_dp.fpu) ? i0_dp.fp_class : i1_dp.fp_class;
    assign fpu_p.rm =     (i0_dp.fpu) ? i0[11:7] : i1[11:7];
 
-   always begin
-     if (fpu_p.valid) begin
-       $display("fpu_p.load = %0d", fpu_p.load);
-       $display("fpu_p.store = %0d", fpu_p.store);
-       $display("fpu_p.add = %0d", fpu_p.add);
-       $display("fpu_p.sub = %0d", fpu_p.sub);
-       $display("fpu_p.mul = %0d", fpu_p.mul);
-       $display("fpu_p.div = %0d\n", fpu_p.div);
-
-     end
-   end
 
    // defined register packet
-
-
 
    assign i0r.rs1[4:0] = i0[19:15];
    assign i0r.rs2[4:0] = i0[24:20];
@@ -1194,15 +1197,15 @@ end : cam_array
    assign i0_rd_d[4:0] = i0r.rd[4:0];
 
 
-   assign dec_i0_frs1_en_d = i0_dp.fpu & i0_dp.rs1;
-   assign dec_i0_frs2_en_d = i0_dp.fpu & i0_dp.rs2;
+   assign dec_i0_fp_rs1_en_d = i0_dp.fpu & i0_dp.rs1;
+   assign dec_i0_fp_rs2_en_d = i0_dp.fpu & i0_dp.rs2;
    //TODO rs3
-   //TODO:assign i0_rd_en_d =  i0_dp.rd & (i0r.rd[4:0] != 5'd0);
+   assign i0_fp_rd_en_d = i0_dp.fpu & i0_dp.rd;
 
-   assign dec_i0_frs1_d[4:0] = i0r.rs1[4:0];
-   assign dec_i0_frs2_d[4:0] = i0r.rs2[4:0];
+   assign dec_i0_fp_rs1_d[4:0] = i0r.rs1[4:0];
+   assign dec_i0_fp_rs2_d[4:0] = i0r.rs2[4:0];
    //TODO rs3
-   //TODO:assign i0_rd_d[4:0] = i0r.rd[4:0];
+   assign i0_fp_rd_d[4:0] = i0r.rd[4:0];
 
 
    assign i0_jalimm20 = i0_dp.jal & i0_dp.imm20;   // jal
@@ -1227,7 +1230,7 @@ end : cam_array
    //always begin
     //if (dec_csr_wen_unq_d) $display("[%X] dec_csr_wen_unq_d=%0d", dec_i0_pc_wb1, dec_csr_wen_unq_d);
    //end
-                               // TODO: allow writing to FFLAGS/FRM | i0_dp.csr_fflags | i0_dp.csr_frm
+                               // TODO(FPU): allow writing to FFLAGS/FRM | i0_dp.csr_fflags | i0_dp.csr_frm
 
    assign dec_csr_any_unq_d = any_csr_d;
 
@@ -1334,6 +1337,15 @@ end : cam_array
    assign i1_rd_d[4:0] = i1r.rd[4:0];
 
 
+   assign dec_i1_fp_rs1_en_d = i1_dp.fpu & i1_dp.rs1;
+   assign dec_i1_fp_rs2_en_d = i1_dp.fpu & i1_dp.rs2;
+   assign i1_fp_rd_en_d = i1_dp.fpu & i1_dp.rd;
+
+   assign dec_i1_fp_rs1_d[4:0] = i1r.rs1[4:0];
+   assign dec_i1_fp_rs2_d[4:0] = i1r.rs2[4:0];
+   assign i1_fp_rd_d[4:0] = i1r.rd[4:0];
+
+
    assign dec_i1_immed_d[31:0] = ({32{i1_dp.imm12}} &   { {20{i1[31]}},i1[31:20] }) |
                                  ({32{i1_dp.shimm5}} &    {27'b0, i1[24:20]}) |
                                  ({32{i1_jalimm20}} &   { {12{i1[31]}},i1[19:12],i1[20],i1[30:21],1'b0}) |
@@ -1396,7 +1408,7 @@ end : cam_array
 
    assign presync_stall = (i0_presync & prior_inflight_eff);
 
-   assign prior_inflight_eff = (i0_dp.div) ? prior_inflight_e1e3 : prior_inflight;
+   assign prior_inflight_eff = (i0_dp.div | i0_dp.fpu) ? prior_inflight_e1e3 : prior_inflight;
 
    // to TLU to set dma_stall
    assign dec_fence_pending = (i0_valid_d & i0_dp.fence) | debug_fence;
@@ -1500,7 +1512,7 @@ end : cam_array
    // jal's will flush, so postsync
    assign ps_stall_in =  (dec_i0_decode_d & (i0_jal | (i0_postsync) | ~i0_legal))  |
                          (dec_i1_decode_d &  i1_jal ) |
-                         ((ps_stall & prior_inflight_e1e4) & ~div_wen_wb);
+                         ((ps_stall & prior_inflight_e1e4) & ~(div_wen_wb | fpu_wen_wb));
 
 
     rvdffs #(1) postsync_stallff (.*, .clk(free_clk), .en(~freeze), .din(ps_stall_in), .dout(ps_stall));
@@ -2011,8 +2023,10 @@ end : cam_array
    // this logic will change for delay wb of divides
    assign dec_div_decode_e4 = e4d.i0div;
 
+   assign dec_fpu_decode_e4 = e4d.i0fpu;
 
-   assign dec_tlu_i0_valid_e4 = (e4d.i0valid & ~e4d.i0div & ~flush_lower_wb) | exu_div_finish;
+
+   assign dec_tlu_i0_valid_e4 = (e4d.i0valid & ~(e4d.i0div | e4d.i0fpu) & ~flush_lower_wb) | exu_div_finish | exu_fpu_finish;
    assign dec_tlu_i1_valid_e4 = e4d.i1valid & ~flush_lower_wb;
 
 
@@ -2032,7 +2046,7 @@ end : cam_array
    assign dt.pmu_divide = 1'b0;
    assign dt.pmu_lsu_misaligned = 1'b0;
 
-   assign dt.i0trigger[3:0] = dec_i0_trigger_match_d[3:0] & {4{dec_i0_decode_d & ~i0_div_decode_d}};
+   assign dt.i0trigger[3:0] = dec_i0_trigger_match_d[3:0] & {4{dec_i0_decode_d & ~(i0_div_decode_d | i0_fpu_decode_d)}};
    assign dt.i1trigger[3:0] = dec_i1_trigger_match_d[3:0] & {4{dec_i1_decode_d}};
 
 
@@ -2083,15 +2097,16 @@ end : cam_array
 
    always_comb begin
 
-      if (exu_div_finish)    // wipe data for exu_div_finish - safer
+      if (exu_div_finish | exu_fpu_finish)    // wipe data for exu_div_finish - safer
         dec_tlu_packet_e4 = '0;
       else
         dec_tlu_packet_e4 = e4t;
 
-      dec_tlu_packet_e4.legal = e4t.legal | exu_div_finish;
-      dec_tlu_packet_e4.i0trigger[3:0] = (exu_div_finish) ? div_trigger[3:0] : e4t.i0trigger[3:0];
+      dec_tlu_packet_e4.legal = e4t.legal | exu_div_finish | exu_fpu_finish;
+      dec_tlu_packet_e4.i0trigger[3:0] = (exu_div_finish) ? div_trigger[3:0] : (exu_fpu_finish) ? fpu_trigger[3:0] : e4t.i0trigger[3:0];
 
       dec_tlu_packet_e4.pmu_divide = exu_div_finish;
+      // TODO(FPU): pmu_divide equivalent needed for FPU?
 
       if (freeze_e4) begin  // in case of freeze, pipe down trigger information
          dec_tlu_packet_e4.i0trigger[3:0] = e4t_i0trigger[3:0];
@@ -2151,6 +2166,7 @@ end : cam_array
    assign dd.i0load = i0_dp.load & i0_legal_decode_d;
    assign dd.i0store = i0_dp.store & i0_legal_decode_d;
    assign dd.i0div = i0_dp.div & i0_legal_decode_d;
+   assign dd.i0fpu = i0_dp.fpu & i0_legal_decode_d;
    assign dd.i0secondary = i0_secondary_d & i0_legal_decode_d;
 
 
@@ -2270,20 +2286,20 @@ end : cam_array
 
    always_comb begin
 
-      if (exu_div_finish)    // wipe data for exu_div_finish - bug where csr_wen was set for fast divide
+      if (exu_div_finish | exu_fpu_finish)    // wipe data for exu_div_finish - bug where csr_wen was set for fast divide
         e4d_in = '0;
       else
         e4d_in = e4d;
 
 
-      e4d_in.i0rd[4:0] = (exu_div_finish) ? div_waddr_wb[4:0] : e4d.i0rd[4:0];
+      e4d_in.i0rd[4:0] = (exu_div_finish) ? div_waddr_wb[4:0] : (exu_fpu_finish) ? fpu_waddr_wb[4:0] : e4d.i0rd[4:0];
 
-      e4d_in.i0v = (e4d.i0v         & ~e4d.i0div & ~flush_lower_wb) | (exu_div_finish & div_waddr_wb[4:0]!=5'b0);
-      e4d_in.i0valid = (e4d.i0valid              & ~flush_lower_wb) | exu_div_finish;
+      e4d_in.i0v = (e4d.i0v         & ~e4d.i0div & ~e4d.i0fpu & ~flush_lower_wb) | (exu_div_finish & div_waddr_wb[4:0]!=5'b0) | exu_fpu_finish;
+      e4d_in.i0valid = (e4d.i0valid                           & ~flush_lower_wb) | exu_div_finish | exu_fpu_finish;
       // qual the following with div finish; necessary for divides with early exit
-      e4d_in.i0secondary = e4d.i0secondary & ~flush_lower_wb & ~exu_div_finish;
-      e4d_in.i0load = e4d.i0load & ~flush_lower_wb & ~exu_div_finish;
-      e4d_in.i0store = e4d.i0store & ~flush_lower_wb & ~exu_div_finish;
+      e4d_in.i0secondary = e4d.i0secondary & ~flush_lower_wb & ~(exu_div_finish | exu_fpu_finish);
+      e4d_in.i0load = e4d.i0load & ~flush_lower_wb & ~(exu_div_finish | exu_fpu_finish);
+      e4d_in.i0store = e4d.i0store & ~flush_lower_wb & ~(exu_div_finish | exu_fpu_finish);
 
       e4d_in.i1v = e4d.i1v         & ~flush_lower_wb;
       e4d_in.i1valid = e4d.i1valid & ~flush_lower_wb;
@@ -2292,7 +2308,7 @@ end : cam_array
    end
 
 
-   rvdffe #( $bits(dest_pkt_t) ) wbff (.*, .en(i0_wb_ctl_en | exu_div_finish | div_wen_wb), .din(e4d_in), .dout(wbd));
+   rvdffe #( $bits(dest_pkt_t) ) wbff (.*, .en(i0_wb_ctl_en | exu_div_finish | div_wen_wb | exu_fpu_finish | fpu_wen_wb), .din(e4d_in), .dout(wbd));
 
    assign dec_i0_waddr_wb[4:0] = wbd.i0rd[4:0];
 
@@ -2334,6 +2350,17 @@ end : cam_array
 
    rvdff  #(1) fpustallff (.*, .clk(active_clk), .din(exu_fpu_stall), .dout(fpu_stall_ff));
 
+   assign i0_fpu_decode_d = i0_legal_decode_d & i0_dp.fpu;
+
+   rvdffe #(31) fpupcff (.*, .en(i0_fpu_decode_d), .din(dec_i0_pc_d[31:1]), .dout(fpu_pc[31:1]));
+
+   rvdffs #(4) fputriggerff (.*, .en(i0_fpu_decode_d), .clk(active_clk), .din(dec_i0_trigger_match_d[3:0]), .dout(fpu_trigger[3:0]));
+
+   rvdffs #(5) fpuwbaddrff (.*, .en(i0_fpu_decode_d), .clk(active_clk), .din(i0r.rd[4:0]), .dout(fpu_waddr_wb[4:0]));
+
+   // active_clk -> used for clockgating for wb stage ctl logic
+   rvdff  #(1) fpuwbff (.*, .clk(active_clk), .din(exu_fpu_finish), .dout(fpu_wen_wb));
+
 
 
    assign i0_result_e1[31:0] = exu_i0_result_e1[31:0];
@@ -2366,7 +2393,7 @@ end : cam_array
    rvdffe #(32) i0wbresultff (.*, .en(i0_wb_data_en), .din(i0_result_e4_final[31:0]), .dout(i0_result_wb_raw[31:0]));
    rvdffe #(32) i1wbresultff (.*, .en(i1_wb_data_en), .din(i1_result_e4_final[31:0]), .dout(i1_result_wb_raw[31:0]));
 
-   assign i0_result_wb[31:0] = (div_wen_wb) ? exu_div_result[31:0] : i0_result_wb_raw[31:0];
+   assign i0_result_wb[31:0] = (div_wen_wb) ? exu_div_result[31:0] : (fpu_wen_wb) ? exu_fpu_result[31:0] : i0_result_wb_raw[31:0];
 
    assign i1_result_wb[31:0] = i1_result_wb_raw[31:0];
 
@@ -2379,6 +2406,7 @@ end : cam_array
 // trace stuff
 
    rvdffe #(32) divinstff   (.*, .en(i0_div_decode_d), .din(i0_inst_d[31:0]), .dout(div_inst[31:0]));
+   rvdffe #(32) fpuinstff   (.*, .en(i0_fpu_decode_d), .din(i0_inst_d[31:0]), .dout(fpu_inst[31:0]));
 
    assign i0_inst_d[31:0] = (dec_i0_pc4_d) ? i0[31:0] : {16'b0, dec_i0_cinst_d[15:0] };
 
@@ -2386,8 +2414,8 @@ end : cam_array
    rvdffe #(32) i0e2instff  (.*, .en(i0_e2_data_en), .din(i0_inst_e1[31:0]), .dout(i0_inst_e2[31:0]));
    rvdffe #(32) i0e3instff  (.*, .en(i0_e3_data_en), .din(i0_inst_e2[31:0]), .dout(i0_inst_e3[31:0]));
    rvdffe #(32) i0e4instff  (.*, .en(i0_e4_data_en), .din(i0_inst_e3[31:0]), .dout(i0_inst_e4[31:0]));
-   rvdffe #(32) i0wbinstff  (.*, .en(i0_wb_data_en | exu_div_finish), .din( (exu_div_finish) ? div_inst[31:0] : i0_inst_e4[31:0]), .dout(i0_inst_wb[31:0]));
-   rvdffe #(32) i0wb1instff (.*, .en(i0_wb1_data_en | div_wen_wb),    .din(i0_inst_wb[31:0]),                                      .dout(i0_inst_wb1[31:0]));
+   rvdffe #(32) i0wbinstff  (.*, .en(i0_wb_data_en | exu_div_finish | exu_fpu_finish), .din( (exu_div_finish) ? div_inst[31:0] : (exu_fpu_finish) ? fpu_inst[31:0] : i0_inst_e4[31:0]), .dout(i0_inst_wb[31:0]));
+   rvdffe #(32) i0wb1instff (.*, .en(i0_wb1_data_en | div_wen_wb | fpu_wen_wb),    .din(i0_inst_wb[31:0]),                                      .dout(i0_inst_wb1[31:0]));
 
    assign i1_inst_d[31:0] = (dec_i1_pc4_d) ? i1[31:0] : {16'b0, dec_i1_cinst_d[15:0] };
 
@@ -2402,8 +2430,8 @@ end : cam_array
    assign dec_i1_inst_wb1[31:0] = i1_inst_wb1[31:0];
 
 
-   rvdffe #(31) i0wbpcff  (.*, .en(i0_wb_data_en | exu_div_finish), .din(dec_tlu_i0_pc_e4[31:1]), .dout(i0_pc_wb[31:1]));
-   rvdffe #(31) i0wb1pcff (.*, .en(i0_wb1_data_en | div_wen_wb),    .din(i0_pc_wb[31:1]),         .dout(i0_pc_wb1[31:1]));
+   rvdffe #(31) i0wbpcff  (.*, .en(i0_wb_data_en | exu_div_finish | exu_fpu_finish), .din(dec_tlu_i0_pc_e4[31:1]), .dout(i0_pc_wb[31:1]));
+   rvdffe #(31) i0wb1pcff (.*, .en(i0_wb1_data_en | div_wen_wb | fpu_wen_wb),    .din(i0_pc_wb[31:1]),         .dout(i0_pc_wb1[31:1]));
 
    rvdffe #(31) i1wb1pcff (.*, .en(i1_wb1_data_en),.din(i1_pc_wb[31:1]),         .dout(i1_pc_wb1[31:1]));
 
@@ -2426,7 +2454,7 @@ end : cam_array
    assign dec_i1_pc_e3[31:1] = i1_pc_e3[31:1];
 
 
-   assign dec_tlu_i0_pc_e4[31:1] = (exu_div_finish) ? div_pc[31:1] : i0_pc_e4[31:1];
+   assign dec_tlu_i0_pc_e4[31:1] = (exu_div_finish) ? div_pc[31:1] : (exu_fpu_finish) ? fpu_pc[31:1] : i0_pc_e4[31:1];
    assign dec_tlu_i1_pc_e4[31:1] = i1_pc_e4[31:1];
 
    // generate the correct npc for correct br predictions
@@ -2597,11 +2625,11 @@ assign out.alu = (!i[6]&i[3]) | (!i[25]&i[5]&i[4]) | (!i[6]&!i[5]&i[4]) | (i[6]&
 assign out.rs1 = (!i[14]&!i[13]&!i[2]) | (!i[13]&i[11]&!i[2]) | (i[19]&i[13]&!i[2]) | (
     !i[13]&i[10]&!i[2]) | (i[18]&i[13]&!i[2]) | (!i[13]&i[9]&!i[2]) | (
     i[17]&i[13]&!i[2]) | (!i[13]&i[8]&!i[2]) | (i[16]&i[13]&!i[2]) | (
-    !i[13]&i[7]&!i[2]) | (i[15]&i[13]&!i[2]) | (i[6]&!i[4]&!i[3]) | (
-    !i[6]&!i[2]) | (i[6]&!i[5]);
+    !i[13]&i[7]&!i[2]) | (i[15]&i[13]&!i[2]) | (!i[4]&!i[3]) | (!i[6]
+    &!i[2]) | (i[6]&!i[5]);
 
-assign out.rs2 = (i[6]&!i[5]&!i[4]) | (i[5]&!i[4]&!i[2]) | (!i[30]&i[6]&!i[5]) | (
-    !i[6]&i[5]&!i[2]);
+assign out.rs2 = (!i[6]&i[5]&!i[4]) | (i[6]&!i[5]&!i[4]) | (i[5]&!i[4]&!i[2]) | (
+    !i[30]&i[6]&!i[5]) | (!i[6]&i[5]&!i[2]);
 
 assign out.rs3 = (i[6]&!i[5]&!i[4]);
 
@@ -2610,7 +2638,7 @@ assign out.imm12 = (i[6]&i[5]&!i[3]&i[2]) | (i[13]&!i[6]&!i[5]&i[4]&!i[2]) | (!i
 
 assign out.rm = (!i[29]&i[6]&!i[5]) | (i[6]&!i[5]&!i[4]);
 
-assign out.rd = (i[6]&i[2]) | (i[4]) | (!i[5]&!i[2]);
+assign out.rd = (!i[5]&!i[2]) | (i[6]&i[2]) | (!i[5]&!i[3]) | (i[4]);
 
 assign out.shimm5 = (!i[13]&i[12]&!i[6]&!i[5]&i[4]&!i[2]);
 
@@ -2618,11 +2646,11 @@ assign out.imm20 = (i[5]&i[3]) | (i[4]&i[2]);
 
 assign out.pc = (!i[5]&i[4]&i[2]) | (i[5]&i[3]);
 
-assign out.load = (!i[6]&!i[5]&!i[4]&!i[2]);
+assign out.load = (!i[6]&!i[5]&!i[4]&!i[3]);
 
-assign out.store = (!i[6]&i[5]&!i[4]&!i[2]);
+assign out.store = (!i[6]&i[5]&!i[4]);
 
-assign out.lsu = (!i[6]&!i[4]&!i[2]);
+assign out.lsu = (!i[6]&!i[4]&!i[3]);
 
 assign out.add = (!i[14]&!i[13]&!i[12]&!i[6]&!i[5]&i[4]) | (!i[30]&!i[25]&!i[14]
     &!i[13]&!i[12]&!i[6]&i[4]&!i[2]) | (!i[5]&i[4]&i[2]);
@@ -2672,7 +2700,7 @@ assign out.by = (!i[13]&!i[12]&!i[6]&!i[4]&!i[2]);
 
 assign out.half = (i[12]&!i[6]&!i[4]&!i[2]);
 
-assign out.word = (i[13]&!i[6]&!i[4]&!i[2]);
+assign out.word = (i[13]&!i[6]&!i[4]);
 
 assign out.csr_read = (i[13]&i[6]&i[5]&i[4]) | (i[7]&i[6]&i[5]&i[4]) | (i[8]&i[6]
     &i[5]&i[4]) | (i[9]&i[6]&i[5]&i[4]) | (i[10]&i[6]&i[5]&i[4]) | (
@@ -2692,20 +2720,18 @@ assign out.csr_imm = (i[14]&!i[13]&i[6]&i[5]&i[4]) | (i[15]&i[14]&i[6]&i[5]&i[4]
     i[16]&i[14]&i[6]&i[5]&i[4]) | (i[17]&i[14]&i[6]&i[5]&i[4]) | (i[18]
     &i[14]&i[6]&i[5]&i[4]) | (i[19]&i[14]&i[6]&i[5]&i[4]);
 
-assign out.presync = (!i[6]&i[3]) | (i[25]&i[14]&!i[6]&i[5]&!i[2]) | (!i[13]&i[7]
-    &i[6]&i[5]&i[4]) | (!i[13]&i[8]&i[6]&i[5]&i[4]) | (!i[13]&i[9]&i[6]
-    &i[5]&i[4]) | (!i[13]&i[10]&i[6]&i[5]&i[4]) | (!i[13]&i[11]&i[6]&i[5]
-    &i[4]) | (i[15]&i[13]&i[6]&i[5]&i[4]) | (i[16]&i[13]&i[6]&i[5]&i[4]) | (
-    i[17]&i[13]&i[6]&i[5]&i[4]) | (i[18]&i[13]&i[6]&i[5]&i[4]) | (i[19]
-    &i[13]&i[6]&i[5]&i[4]);
+assign out.presync = (!i[5]&i[3]) | (i[6]&!i[5]) | (i[25]&i[14]&!i[6]&i[5]&!i[2]) | (
+    i[15]&i[13]&i[6]&i[4]) | (i[16]&i[13]&i[6]&i[4]) | (i[17]&i[13]&i[6]
+    &i[4]) | (i[18]&i[13]&i[6]&i[4]) | (i[19]&i[13]&i[6]&i[4]) | (!i[13]
+    &i[7]&i[6]&i[4]) | (!i[13]&i[8]&i[6]&i[4]) | (!i[13]&i[9]&i[6]&i[4]) | (
+    !i[13]&i[10]&i[6]&i[4]) | (!i[13]&i[11]&i[6]&i[4]);
 
-assign out.postsync = (i[12]&!i[6]&i[3]) | (!i[22]&!i[13]&!i[12]&i[6]&i[5]&i[4]) | (
-    i[25]&i[14]&!i[6]&i[5]&!i[2]) | (!i[13]&i[7]&i[6]&i[5]&i[4]) | (
-    !i[13]&i[8]&i[6]&i[5]&i[4]) | (!i[13]&i[9]&i[6]&i[5]&i[4]) | (!i[13]
-    &i[10]&i[6]&i[5]&i[4]) | (!i[13]&i[11]&i[6]&i[5]&i[4]) | (i[15]&i[13]
-    &i[6]&i[5]&i[4]) | (i[16]&i[13]&i[6]&i[5]&i[4]) | (i[17]&i[13]&i[6]
-    &i[5]&i[4]) | (i[18]&i[13]&i[6]&i[5]&i[4]) | (i[19]&i[13]&i[6]&i[5]
-    &i[4]);
+assign out.postsync = (i[12]&!i[5]&i[3]) | (!i[22]&!i[13]&!i[12]&i[6]&i[4]) | (i[6]
+    &!i[5]) | (i[25]&i[14]&!i[6]&i[5]&!i[2]) | (i[15]&i[13]&i[6]&i[4]) | (
+    i[16]&i[13]&i[6]&i[4]) | (i[17]&i[13]&i[6]&i[4]) | (i[18]&i[13]&i[6]
+    &i[4]) | (i[19]&i[13]&i[6]&i[4]) | (!i[13]&i[7]&i[6]&i[4]) | (!i[13]
+    &i[8]&i[6]&i[4]) | (!i[13]&i[9]&i[6]&i[4]) | (!i[13]&i[10]&i[6]&i[4]) | (
+    !i[13]&i[11]&i[6]&i[4]);
 
 assign out.ebreak = (!i[22]&i[20]&!i[13]&!i[12]&i[6]&i[5]&i[4]);
 
@@ -2733,11 +2759,9 @@ assign out.fence_i = (i[12]&!i[6]&i[3]);
 assign out.pm_alu = (i[28]&i[22]&!i[13]&!i[12]&i[5]&i[4]) | (!i[6]&!i[5]&i[4]) | (
     !i[25]&!i[6]&i[4]) | (i[4]&i[2]);
 
-assign out.fpu = (!i[6]&!i[4]&!i[3]&i[2]) | (i[6]&!i[5]);
+assign out.fpu = (i[6]&!i[5]);
 
-assign out.fp_load = (!i[6]&!i[5]&!i[4]&!i[3]&i[2]);
-
-assign out.fp_store = (!i[6]&i[5]&!i[4]&i[2]);
+assign out.fp_lsu = (!i[6]&!i[4]&!i[3]&i[2]);
 
 assign out.fp_madd = (i[6]&!i[5]&!i[4]&!i[3]&!i[2]);
 

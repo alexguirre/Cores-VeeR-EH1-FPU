@@ -739,6 +739,9 @@ module veer
 
    fpu_pkt_t  fpu_p;
 
+   logic dec_i0_fpu_d;
+   logic dec_i1_fpu_d;
+
    logic [31:0] exu_fpu_result;
    logic exu_fpu_finish;
    logic exu_fpu_stall;
@@ -749,6 +752,7 @@ module veer
    logic        dec_i1_valid_e1;
 
    logic        dec_div_decode_e4;
+   logic        dec_fpu_decode_e4;
 
    logic [31:1] pred_correct_npc_e2;
 

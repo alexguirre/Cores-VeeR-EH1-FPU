@@ -2201,7 +2201,7 @@ module dec_tlu_ctl
    `define FCSR   12'h003
 
    assign wr_fcsr_wb = dec_csr_wen_wb_mod & (dec_csr_wraddr_wb[11:0] == `FCSR);
-   // TODO: support writing to FRM and FFLAGS addresses
+   // TODO(FPU): support writing to FRM and FFLAGS addresses
 
    rvdffe #(32)  fcsr_ff (.*, .en(wr_fcsr_wb), .din(dec_csr_wrdata_wb[31:0]), .dout(fcsr[31:0]));
 

@@ -323,8 +323,11 @@ module dec
    output logic        dec_i1_mul_d,
    output logic        dec_i0_div_d,               // chose which gpr value to use
    output logic        dec_i1_div_d,
+   output logic        dec_i0_fpu_d,               // chose which gpr value to use
+   output logic        dec_i1_fpu_d,
    output logic        dec_i1_valid_e1,            // i1 valid at e1 stage
    output logic        dec_div_decode_e4,          // div at e4 stage
+   output logic        dec_fpu_decode_e4,          // FPU at e4 stage
    output logic [31:1] pred_correct_npc_e2,        // npc if prediction is correct at e2 stage
 
    output logic        dec_i0_rs1_bypass_en_e3,    // rs1 bypass enable e3
@@ -442,18 +445,18 @@ module dec
    logic [4:0]  dec_i1_rs1_d;
    logic [4:0]  dec_i1_rs2_d;
 
-   logic        dec_i0_frs1_en_d;
-   logic        dec_i0_frs2_en_d;
+   logic        dec_i0_fp_rs1_en_d;
+   logic        dec_i0_fp_rs2_en_d;
 
-   logic [4:0]  dec_i0_frs1_d;
-   logic [4:0]  dec_i0_frs2_d;
+   logic [4:0]  dec_i0_fp_rs1_d;
+   logic [4:0]  dec_i0_fp_rs2_d;
 
 
-   logic        dec_i1_frs1_en_d;
-   logic        dec_i1_frs2_en_d;
+   logic        dec_i1_fp_rs1_en_d;
+   logic        dec_i1_fp_rs2_en_d;
 
-   logic [4:0]  dec_i1_frs1_d;
-   logic [4:0]  dec_i1_frs2_d;
+   logic [4:0]  dec_i1_fp_rs1_d;
+   logic [4:0]  dec_i1_fp_rs2_d;
 
 
    logic [31:0] dec_i0_instr_d, dec_i1_instr_d;
@@ -562,10 +565,10 @@ module dec
    dec_fpr_ctl #(.GPR_BANKS(GPR_BANKS),
                  .GPR_BANKS_LOG2(GPR_BANKS_LOG2)) arf_fp (.*,
                     // inputs
-                    .raddr0(dec_i0_frs1_d[4:0]), .rden0(dec_i0_frs1_en_d),
-                    .raddr1(dec_i0_frs2_d[4:0]), .rden1(dec_i0_frs2_en_d),
-                    .raddr2(dec_i1_frs1_d[4:0]), .rden2(dec_i1_frs1_en_d),
-                    .raddr3(dec_i1_frs2_d[4:0]), .rden3(dec_i1_frs2_en_d),
+                    .raddr0(dec_i0_fp_rs1_d[4:0]), .rden0(dec_i0_fp_rs1_en_d),
+                    .raddr1(dec_i0_fp_rs2_d[4:0]), .rden1(dec_i0_fp_rs2_en_d),
+                    .raddr2(dec_i1_fp_rs1_d[4:0]), .rden2(dec_i1_fp_rs1_en_d),
+                    .raddr3(dec_i1_fp_rs2_d[4:0]), .rden3(dec_i1_fp_rs2_en_d),
 
                     .waddr0(dec_i0_waddr_wb[4:0]),         .wen0(dec_i0_wen_wb),         .wd0(dec_i0_wdata_wb[31:0]),
                     .waddr1(dec_i1_waddr_wb[4:0]),         .wen1(dec_i1_wen_wb),         .wd1(dec_i1_wdata_wb[31:0]),

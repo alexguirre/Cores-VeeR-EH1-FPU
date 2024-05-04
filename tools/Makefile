@@ -93,9 +93,9 @@ ${BUILD_DIR}/defines.h :
 
 ##################### Verilog Builds #####################################
 
-# TODO: added -Wno-WIDTH and -Wno-LITENDIAN because cvfpu complains. Investigate
-# TODO: added -Wno-UNSIGNED because common_cells/src/rr_arb_tree.sv complains. Investigate
-# TODO: added -Wno-SELRANGE because fpnew_divsqrt_multi.sv complains. Investigate
+# TODO(FPU): added -Wno-WIDTH and -Wno-LITENDIAN because cvfpu complains. Investigate
+# TODO(FPU): added -Wno-UNSIGNED because common_cells/src/rr_arb_tree.sv complains. Investigate
+# TODO(FPU): added -Wno-SELRANGE because fpnew_divsqrt_multi.sv complains. Investigate
 verilator-build: ${TBFILES} ${BUILD_DIR}/defines.h test_tb_top.cpp
 	echo '`undef ASSERT_ON' >> ${BUILD_DIR}/common_defines.vh
 	$(VERILATOR) --cc -CFLAGS ${CFLAGS} $(defines) $(includes) \
