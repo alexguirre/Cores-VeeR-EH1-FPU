@@ -1176,7 +1176,7 @@ end : cam_array
    assign fpu_p.lt =     (i0_dp.fpu) ? i0_dp.fp_lt :    i1_dp.fp_lt;
    assign fpu_p.le =     (i0_dp.fpu) ? i0_dp.fp_le :    i1_dp.fp_le;
    assign fpu_p.class_ = (i0_dp.fpu) ? i0_dp.fp_class : i1_dp.fp_class;
-   assign fpu_p.rm =     (i0_dp.fpu) ? i0[11:7] : i1[11:7];
+   assign fpu_p.rm =     (i0_dp.fpu) ? i0[14:12] : i1[14:12];
 
 
    // defined register packet

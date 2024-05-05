@@ -63,23 +63,24 @@ module exu_fpu_ctl
 
    assign valid_e1                = valid_ff_e1 & ~flush_lower_ff;
 
-
-
-
-
    assign fpu_in_valid = valid_e1;
    assign fpu_out_ready = 1;
-   assign fpu_rnd_mode = 0;
    assign fpu_src_fmt = fpnew_pkg::FP32;
    assign fpu_dst_fmt = fpnew_pkg::FP32;
    assign fpu_int_fmt = fpnew_pkg::INT32;
 
    always_comb begin
-     assign fpu_op = (({4{fp_ff.add | fp_ff.sub}} & fpnew_pkg::ADD) |
-                      ({4{fp_ff.mul}}             & fpnew_pkg::MUL) |
-                      ({4{fp_ff.div}}             & fpnew_pkg::DIV) |
-                      ({4{fp_ff.sqrt}}            & fpnew_pkg::SQRT));
+     assign fpu_op = (({4{fp_ff.add | fp_ff.sub}}                  & fpnew_pkg::ADD)    |
+                      ({4{fp_ff.mul}}                              & fpnew_pkg::MUL)    |
+                      ({4{fp_ff.div}}                              & fpnew_pkg::DIV)    |
+                      ({4{fp_ff.sqrt}}                             & fpnew_pkg::SQRT)   |
+                      ({4{fp_ff.min | fp_ff.max}}                  & fpnew_pkg::MINMAX) |
+                      ({4{fp_ff.sgnj | fp_ff.sgnjn | fp_ff.sgnjx}} & fpnew_pkg::SGNJ));
      assign fpu_op_mod = fp_ff.sub;
+
+     // minmax and sign injection operations encoded in rounding mode
+     // TODO(FPU): dynamic rounding mode read from fcsr
+     assign fpu_rnd_mode = fp_ff.rm;
 
      if (fp_ff.add | fp_ff.sub) begin
         assign fpu_operands[1] = a_ff;
@@ -91,30 +92,27 @@ module exu_fpu_ctl
      end
    end
 
-/*
-                       logic       valid;
-                       logic       load;
-                       logic       store;
-                       logic       madd;
-                       logic       msub;
-                       logic       nmsub;
-                       logic       nmadd;
-                       logic       add;
-                       logic       sub;
-                       logic       mul;
-                       logic       div;
-                       logic       sqrt;
-                       logic       sgnj;
-                       logic       sgnjn;
-                       logic       sgnjx;
-                       logic       min;
-                       logic       max;
-                       logic       cvt;
-                       logic       mv;
-                       logic       eq;
-                       logic       lt;
-                       logic       le;
-                       logic       class_;*/
+  /* TODO(FPU): instructions not handled
+
+     TODO(FPU): fused-multiply-add needs to read register rs3
+         logic       madd;
+         logic       msub;
+         logic       nmsub;
+         logic       nmadd;
+
+     TODO(FPU): conversion instructions need to read/write integer registers
+         logic       cvt;
+
+     TODO(FPU): move to/from integer registers need to read/write integer registers
+         logic       mv;
+
+     TODO(FPU): comparisons and classify needs to store result in integer register
+         logic       eq;
+         logic       lt;
+         logic       le;
+
+         logic       class_;
+  */
 
 
 
@@ -154,35 +152,29 @@ module exu_fpu_ctl
 
 
 
-
-
-
-
-
-
-   // DEBUGGING
-                       logic       dbg_fp_valid;
-                       logic       dbg_fp_madd;
-                       logic       dbg_fp_msub;
-                       logic       dbg_fp_nmsub;
-                       logic       dbg_fp_nmadd;
-                       logic       dbg_fp_add;
-                       logic       dbg_fp_sub;
-                       logic       dbg_fp_mul;
-                       logic       dbg_fp_div;
-                       logic       dbg_fp_sqrt;
-                       logic       dbg_fp_sgnj;
-                       logic       dbg_fp_sgnjn;
-                       logic       dbg_fp_sgnjx;
-                       logic       dbg_fp_min;
-                       logic       dbg_fp_max;
-                       logic       dbg_fp_cvt;
-                       logic       dbg_fp_mv;
-                       logic       dbg_fp_eq;
-                       logic       dbg_fp_lt;
-                       logic       dbg_fp_le;
-                       logic       dbg_fp_class_;
-                       logic [2:0] dbg_fp_rm; // rounding mode
+   // DEBUGGING, to see individual signals in gtkwave
+       logic       dbg_fp_valid;
+       logic       dbg_fp_madd;
+       logic       dbg_fp_msub;
+       logic       dbg_fp_nmsub;
+       logic       dbg_fp_nmadd;
+       logic       dbg_fp_add;
+       logic       dbg_fp_sub;
+       logic       dbg_fp_mul;
+       logic       dbg_fp_div;
+       logic       dbg_fp_sqrt;
+       logic       dbg_fp_sgnj;
+       logic       dbg_fp_sgnjn;
+       logic       dbg_fp_sgnjx;
+       logic       dbg_fp_min;
+       logic       dbg_fp_max;
+       logic       dbg_fp_cvt;
+       logic       dbg_fp_mv;
+       logic       dbg_fp_eq;
+       logic       dbg_fp_lt;
+       logic       dbg_fp_le;
+       logic       dbg_fp_class_;
+       logic [2:0] dbg_fp_rm; // rounding mode
 
       assign dbg_fp_valid = fp_ff.valid;
       assign dbg_fp_madd = fp_ff.madd;
