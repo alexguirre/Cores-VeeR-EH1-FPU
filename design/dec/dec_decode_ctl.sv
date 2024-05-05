@@ -34,6 +34,7 @@ module dec_decode_ctl
    input logic                                lsu_nonblock_load_data_valid,    // valid nonblock load data back
    input logic                                lsu_nonblock_load_data_error,    // nonblock load bus error
    input logic [`RV_LSU_NUM_NBLOAD_WIDTH-1:0] lsu_nonblock_load_data_tag,      // -> corresponding tag
+   input logic                                lsu_nonblock_fp,                 // nonblock load goes to floating-point registers
 
    input logic [3:0] dec_i0_trigger_match_d,          // i0 decode trigger matches
    input logic [3:0] dec_i1_trigger_match_d,          // i1 decode trigger matches
@@ -187,11 +188,12 @@ module dec_decode_ctl
 
 
    output logic [4:0]  dec_i0_waddr_wb,         // i0 logical source to write to gpr's
-   output logic          dec_i0_wen_wb,         // i0 write enable
+   output logic        dec_i0_wen_wb,           // i0 write enable
    output logic [31:0] dec_i0_wdata_wb,         // i0 write data
+   output logic        dec_i0_fp_wen_wb,        // i0 write enable to fp registers
 
    output logic [4:0]  dec_i1_waddr_wb,
-   output logic          dec_i1_wen_wb,
+   output logic        dec_i1_wen_wb,
    output logic [31:0] dec_i1_wdata_wb,
 
    output logic          dec_i0_select_pc_d,    // i0 select pc for rs1 - branches
@@ -289,6 +291,7 @@ module dec_decode_ctl
    output logic       dec_pmu_postsync_stall,   // decode has postsync stall
 
    output logic       dec_nonblock_load_wen,        // write enable for nonblock load
+   output logic       dec_nonblock_load_fp_wen,     // write enable for nonblock load to fp registers
    output logic [4:0] dec_nonblock_load_waddr,      // logical write addr for nonblock load
    output logic       dec_nonblock_load_freeze_dc2, // lsu must freeze nonblock load due to younger dependency in pipe
    output logic       dec_pause_state,              // core in pause state
@@ -894,6 +897,7 @@ end : cam_array
 
 
    assign dec_nonblock_load_wen = lsu_nonblock_load_data_valid & |nonblock_load_write[NBLOAD_SIZE_MSB:0] & ~nonblock_load_cancel;
+   assign dec_nonblock_load_fp_wen = dec_nonblock_load_wen & lsu_nonblock_fp;
 
    always_comb begin
       dec_nonblock_load_waddr[4:0] = '0;
@@ -2293,9 +2297,11 @@ end : cam_array
 
 
       e4d_in.i0rd[4:0] = (exu_div_finish) ? div_waddr_wb[4:0] : (exu_fpu_finish) ? fpu_waddr_wb[4:0] : e4d.i0rd[4:0];
+      //e4d_in.i0fpu = exu_fpu_finish; // used to wb to fp register file // TODO(FPU): is this correct????
+      // TODO(FPU): can we use fpu_wen_wb instead?
 
-      e4d_in.i0v = (e4d.i0v         & ~e4d.i0div & ~e4d.i0fpu & ~flush_lower_wb) | (exu_div_finish & div_waddr_wb[4:0]!=5'b0) | exu_fpu_finish;
-      e4d_in.i0valid = (e4d.i0valid                           & ~flush_lower_wb) | exu_div_finish | exu_fpu_finish;
+      e4d_in.i0v = (e4d.i0v         & ~(e4d.i0div | e4d.i0fpu) & ~flush_lower_wb) | (exu_div_finish & div_waddr_wb[4:0]!=5'b0) | exu_fpu_finish;
+      e4d_in.i0valid = (e4d.i0valid                            & ~flush_lower_wb) | exu_div_finish | exu_fpu_finish;
       // qual the following with div finish; necessary for divides with early exit
       e4d_in.i0secondary = e4d.i0secondary & ~flush_lower_wb & ~(exu_div_finish | exu_fpu_finish);
       e4d_in.i0load = e4d.i0load & ~flush_lower_wb & ~(exu_div_finish | exu_fpu_finish);
@@ -2315,6 +2321,8 @@ end : cam_array
    // squash same write, take last write assuming we don't kill the I1 write for some reason.
    assign     i0_wen_wb = wbd.i0v & ~(~dec_tlu_i1_kill_writeb_wb & ~i1_load_kill_wen & wbd.i0v & wbd.i1v & (wbd.i0rd[4:0] == wbd.i1rd[4:0])) & ~dec_tlu_i0_kill_writeb_wb;
    assign dec_i0_wen_wb = i0_wen_wb & ~i0_load_kill_wen;  // don't write a nonblock load 1st time down the pipe
+   assign dec_i0_fp_wen_wb = dec_i0_wen_wb & fpu_wen_wb;
+   // TODO(FPU): here somehow send a signal back when it should write to fp register file
 
    assign dec_i0_wdata_wb[31:0] = i0_result_wb[31:0];
 

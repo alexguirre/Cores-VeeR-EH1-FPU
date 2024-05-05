@@ -128,6 +128,7 @@ module lsu_bus_buffer
    output logic                                lsu_nonblock_load_data_error,    // non block load has an error
    output logic [`RV_LSU_NUM_NBLOAD_WIDTH-1:0] lsu_nonblock_load_data_tag,      // the tag of the non block load sending the data/error
    output logic [31:0]                         lsu_nonblock_load_data,          // Data of the non block load
+   output logic                                lsu_nonblock_fp,                 // Non block load goes to floating-point registers
 
    // PMU events
    output logic                         lsu_pmu_bus_trxn,
@@ -256,6 +257,7 @@ module lsu_bus_buffer
    logic   [DEPTH-1:0]                  buf_sideeffect;
    logic   [DEPTH-1:0]                  buf_write;
    logic   [DEPTH-1:0]                  buf_unsign;
+   logic   [DEPTH-1:0]                  buf_fp;
    logic   [DEPTH-1:0]                  buf_dual;
    logic   [DEPTH-1:0]                  buf_samedw;
    logic   [DEPTH-1:0]                  buf_nomerge;
@@ -278,6 +280,7 @@ module lsu_bus_buffer
    logic   [DEPTH-1:0]                  buf_nb_in;
    logic   [DEPTH-1:0]                  buf_sideeffect_in;
    logic   [DEPTH-1:0]                  buf_unsign_in;
+   logic   [DEPTH-1:0]                  buf_fp_in;
    logic   [DEPTH-1:0][1:0]             buf_sz_in;
    logic   [DEPTH-1:0]                  buf_write_in;
    logic   [DEPTH-1:0]                  buf_wr_en;
@@ -301,6 +304,7 @@ module lsu_bus_buffer
    logic                               ibuf_nb;
    logic                               ibuf_sideeffect;
    logic                               ibuf_unsign;
+   logic                               ibuf_fp;
    logic                               ibuf_write;
    logic [1:0]                         ibuf_sz;
    logic [3:0]                         ibuf_byteen;
@@ -476,6 +480,7 @@ module lsu_bus_buffer
    rvdffs  #(.WIDTH(1))              ibuf_nbff         (.din(lsu_nonblock_load_valid_dc5), .dout(ibuf_nb),         .en(ibuf_wr_en),                   .clk(lsu_bus_ibuf_c1_clk), .*);
    rvdffs  #(.WIDTH(1))              ibuf_sideeffectff (.din(is_sideeffects_dc5),          .dout(ibuf_sideeffect), .en(ibuf_wr_en),                   .clk(lsu_bus_ibuf_c1_clk), .*);
    rvdffs  #(.WIDTH(1))              ibuf_unsignff     (.din(lsu_pkt_dc5.unsign),          .dout(ibuf_unsign),     .en(ibuf_wr_en),                   .clk(lsu_bus_ibuf_c1_clk), .*);
+   rvdffs  #(.WIDTH(1))              ibuf_fpff         (.din(lsu_pkt_dc5.fp),              .dout(ibuf_fp),         .en(ibuf_wr_en),                   .clk(lsu_bus_ibuf_c1_clk), .*);
    rvdffs  #(.WIDTH(1))              ibuf_writeff      (.din(lsu_pkt_dc5.store),           .dout(ibuf_write),      .en(ibuf_wr_en),                   .clk(lsu_bus_ibuf_c1_clk), .*);
    rvdffs  #(.WIDTH(2))              ibuf_szff         (.din(ibuf_sz_in[1:0]),             .dout(ibuf_sz),         .en(ibuf_wr_en),                   .clk(lsu_bus_ibuf_c1_clk), .*);
    rvdffe  #(.WIDTH(32))             ibuf_addrff       (.din(ibuf_addr_in[31:0]),          .dout(ibuf_addr),       .en(ibuf_wr_en),                                              .*);
@@ -639,6 +644,7 @@ module lsu_bus_buffer
       assign buf_nb_in[i]         = ibuf_drainvec_vld[i] ? ibuf_nb : lsu_nonblock_load_valid_dc5;
       assign buf_sideeffect_in[i] = ibuf_drainvec_vld[i] ? ibuf_sideeffect : is_sideeffects_dc5;
       assign buf_unsign_in[i]     = ibuf_drainvec_vld[i] ? ibuf_unsign : lsu_pkt_dc5.unsign;
+      assign buf_fp_in[i]         = ibuf_drainvec_vld[i] ? ibuf_fp : lsu_pkt_dc5.fp;
       assign buf_sz_in[i]         = ibuf_drainvec_vld[i] ? ibuf_sz : {lsu_pkt_dc5.word, lsu_pkt_dc5.half};
       assign buf_write_in[i]      = ibuf_drainvec_vld[i] ? ibuf_write : lsu_pkt_dc5.store;
 
@@ -718,6 +724,7 @@ module lsu_bus_buffer
       rvdffs  #(.WIDTH(1))              buf_nbff         (.din(buf_nb_in[i]),                .dout(buf_nb[i]),         .en(buf_wr_en[i]),                                           .clk(lsu_bus_buf_c1_clk), .*);
       rvdffs  #(.WIDTH(1))              buf_sideeffectff (.din(buf_sideeffect_in[i]),        .dout(buf_sideeffect[i]), .en(buf_wr_en[i]),                                           .clk(lsu_bus_buf_c1_clk), .*);
       rvdffs  #(.WIDTH(1))              buf_unsignff     (.din(buf_unsign_in[i]),            .dout(buf_unsign[i]),     .en(buf_wr_en[i]),                                           .clk(lsu_bus_buf_c1_clk), .*);
+      rvdffs  #(.WIDTH(1))              buf_fpff         (.din(buf_fp_in[i]),                .dout(buf_fp[i]),         .en(buf_wr_en[i]),                                           .clk(lsu_bus_buf_c1_clk), .*);
       rvdffs  #(.WIDTH(1))              buf_writeff      (.din(buf_write_in[i]),             .dout(buf_write[i]),      .en(buf_wr_en[i]),                                           .clk(lsu_bus_buf_c1_clk), .*);
       rvdffs  #(.WIDTH(2))              buf_szff         (.din(buf_sz_in[i]),                .dout(buf_sz[i]),         .en(buf_wr_en[i]),                                           .clk(lsu_bus_buf_c1_clk), .*);
       rvdffe  #(.WIDTH(32))             buf_addrff       (.din(buf_addr_in[i][31:0]),        .dout(buf_addr[i]),       .en(buf_wr_en[i]),                                                                     .*);
@@ -794,6 +801,7 @@ module lsu_bus_buffer
    assign lsu_nonblock_addr_offset[1:0] = buf_addr[lsu_nonblock_load_data_tag][1:0];
    assign lsu_nonblock_sz[1:0]          = buf_sz[lsu_nonblock_load_data_tag][1:0];
    assign lsu_nonblock_unsign           = buf_unsign[lsu_nonblock_load_data_tag];
+   assign lsu_nonblock_fp               = buf_fp[lsu_nonblock_load_data_tag];
    assign lsu_nonblock_dual             = buf_dual[lsu_nonblock_load_data_tag];
    assign lsu_nonblock_data_unalgn[31:0] = 32'({lsu_nonblock_load_data_hi[31:0], lsu_nonblock_load_data_lo[31:0]} >> 8*lsu_nonblock_addr_offset[1:0]);
 

@@ -57,10 +57,12 @@ _start:
     flw f2, 0(x4)
     la x4, value2
     flw f3, 0(x4)
-    fadd.s f1, f2, f3
-    fsub.s f1, f2, f3
-    fmul.s f1, f2, f3
-    fdiv.s f1, f2, f3
+    fadd.s  f1, f2, f3
+    fsub.s  f1, f2, f3
+    fmul.s  f1, f2, f3
+    fdiv.s  f1, f2, f3
+    fsqrt.s f1, f3
+    div    x1, x2, x3
 
     la x4, value_result
     fsw f1, 0(x4)

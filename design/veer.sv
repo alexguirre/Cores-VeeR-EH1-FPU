@@ -699,6 +699,7 @@ module veer
    logic                                  lsu_nonblock_load_data_valid;
    logic [`RV_LSU_NUM_NBLOAD_WIDTH-1:0]   lsu_nonblock_load_data_tag;
    logic [31:0]                           lsu_nonblock_load_data;
+   logic                                  lsu_nonblock_fp;
 
    logic        flush_final_e3;
    logic        i0_flush_final_e3;

@@ -350,13 +350,13 @@ module exu
 
 
    // TODO(FPU): use FP register file
-   assign fpu_rs1_d[31:0]      = ({32{ ~dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & gpr_i0_rs1_d[31:0]) |
-                                 ({32{ ~dec_i1_rs1_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & gpr_i1_rs1_d[31:0]) |
+   assign fpu_rs1_d[31:0]      = ({32{ ~dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & fpr_i0_rs1_d[31:0]) |
+                                 ({32{ ~dec_i1_rs1_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs1_d[31:0]) |
                                  ({32{  dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & i0_rs1_bypass_data_d[31:0]) |
                                  ({32{  dec_i1_rs1_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & i1_rs1_bypass_data_d[31:0]);
 
-   assign fpu_rs2_d[31:0]      = ({32{ ~dec_i0_rs2_bypass_en_d &  dec_i0_fpu_d               }} & gpr_i0_rs2_d[31:0]) |
-                                 ({32{ ~dec_i1_rs2_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & gpr_i1_rs2_d[31:0]) |
+   assign fpu_rs2_d[31:0]      = ({32{ ~dec_i0_rs2_bypass_en_d &  dec_i0_fpu_d               }} & fpr_i0_rs2_d[31:0]) |
+                                 ({32{ ~dec_i1_rs2_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs2_d[31:0]) |
                                  ({32{  dec_i0_rs2_bypass_en_d &  dec_i0_fpu_d               }} & i0_rs2_bypass_data_d[31:0]) |
                                  ({32{  dec_i1_rs2_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & i1_rs2_bypass_data_d[31:0]);
   // TODO(FPU): rs3 for fpu

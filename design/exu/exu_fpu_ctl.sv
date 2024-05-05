@@ -50,16 +50,15 @@ module exu_fpu_ctl
    logic fpu_out_ready, fpu_out_valid;
 
 
-   rvdff  #(1)  flush_any_ff      (.*, .clk(active_clk), .din(flush_lower),                                .dout(flush_lower_ff));
-   rvdff  #(1)  e1val_ff          (.*, .clk(active_clk), .din(fp.valid & ~flush_lower_ff),                 .dout(valid_ff_e1));
+   rvdff  #(1)                flush_any_ff (.*, .clk(active_clk), .din(flush_lower),                .dout(flush_lower_ff));
+   rvdff  #(1)                e1val_ff     (.*, .clk(active_clk), .din(fp.valid & ~flush_lower_ff), .dout(valid_ff_e1));
 
-   rvdffe #($bits(fpu_pkt_t)) fpff (.*, .en(fp.valid & ~flush_lower_ff), .din(fp),      .dout(fp_ff));
-   rvdffe #(32)               aff  (.*, .en(fp.valid & ~flush_lower_ff), .din(a[31:0]), .dout(a_ff[31:0]));
-   rvdffe #(32)               bff  (.*, .en(fp.valid & ~flush_lower_ff), .din(b[31:0]), .dout(b_ff[31:0]));
-   rvdffe #(32)               cff  (.*, .en(fp.valid & ~flush_lower_ff), .din(c[31:0]), .dout(c_ff[31:0]));
+   rvdffe #($bits(fpu_pkt_t)) fpff         (.*, .en(fp.valid & ~flush_lower_ff), .din(fp),      .dout(fp_ff));
+   rvdffe #(32)               aff          (.*, .en(fp.valid & ~flush_lower_ff), .din(a[31:0]), .dout(a_ff[31:0]));
+   rvdffe #(32)               bff          (.*, .en(fp.valid & ~flush_lower_ff), .din(b[31:0]), .dout(b_ff[31:0]));
+   rvdffe #(32)               cff          (.*, .en(fp.valid & ~flush_lower_ff), .din(c[31:0]), .dout(c_ff[31:0]));
 
-
-   rvdffe #(32) resultff               (.*, .en(fpu_out_valid),  .din(fpu_result[31:0]),                                 .dout(fpu_result_ff[31:0]));
+   rvdffe #(32)               resultff     (.*, .en(fpu_out_valid), .din(fpu_result[31:0]), .dout(fpu_result_ff[31:0]));
 
 
    assign valid_e1                = valid_ff_e1 & ~flush_lower_ff;
@@ -78,7 +77,8 @@ module exu_fpu_ctl
    always_comb begin
      assign fpu_op = (({4{fp_ff.add | fp_ff.sub}} & fpnew_pkg::ADD) |
                       ({4{fp_ff.mul}}             & fpnew_pkg::MUL) |
-                      ({4{fp_ff.div}}             & fpnew_pkg::DIV));
+                      ({4{fp_ff.div}}             & fpnew_pkg::DIV) |
+                      ({4{fp_ff.sqrt}}            & fpnew_pkg::SQRT));
      assign fpu_op_mod = fp_ff.sub;
 
      if (fp_ff.add | fp_ff.sub) begin

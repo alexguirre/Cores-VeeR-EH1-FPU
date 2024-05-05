@@ -81,6 +81,7 @@ module lsu
    output logic                                 lsu_nonblock_load_data_error,   // non block load has an error
    output logic [`RV_LSU_NUM_NBLOAD_WIDTH-1:0]  lsu_nonblock_load_data_tag,     // the tag of the non block load sending the data/error
    output logic [31:0]                          lsu_nonblock_load_data,         // Data of the non block load
+   output logic                                 lsu_nonblock_fp,                // Non block load goes to floating-point registers
 
    output logic                            lsu_pmu_misaligned_dc3,         // PMU : misaligned
    output logic                            lsu_pmu_bus_trxn,               // PMU : bus transaction

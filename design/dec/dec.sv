@@ -79,6 +79,7 @@ module dec
    input logic                                 lsu_nonblock_load_data_error,     // nonblock load bus error
    input logic [`RV_LSU_NUM_NBLOAD_WIDTH-1:0]  lsu_nonblock_load_data_tag,       // -> corresponding tag
    input logic [31:0]                          lsu_nonblock_load_data,           // nonblock load data
+   input logic                                 lsu_nonblock_fp,                  // Non block load goes to floating-point registers
 
    input logic       lsu_pmu_bus_trxn,       // D side bus transaction
    input logic       lsu_pmu_bus_misaligned, // D side bus misaligned
@@ -468,6 +469,7 @@ module dec
    logic [4:0]  dec_i0_waddr_wb;
    logic        dec_i0_wen_wb;
    logic [31:0] dec_i0_wdata_wb;
+   logic        dec_i0_fp_wen_wb;
 
    logic [4:0]  dec_i1_waddr_wb;
    logic        dec_i1_wen_wb;
@@ -523,6 +525,7 @@ module dec
    logic                      dec_debug_fence_d;
 
    logic                      dec_nonblock_load_wen;
+   logic                      dec_nonblock_load_fp_wen;
    logic [4:0]                dec_nonblock_load_waddr;
    logic                      dec_tlu_flush_pause_wb;
 
@@ -547,14 +550,14 @@ module dec
    dec_gpr_ctl #(.GPR_BANKS(GPR_BANKS),
                  .GPR_BANKS_LOG2(GPR_BANKS_LOG2)) arf (.*,
                     // inputs
-                    .raddr0(dec_i0_rs1_d[4:0]), .rden0(dec_i0_rs1_en_d),
-                    .raddr1(dec_i0_rs2_d[4:0]), .rden1(dec_i0_rs2_en_d),
-                    .raddr2(dec_i1_rs1_d[4:0]), .rden2(dec_i1_rs1_en_d),
-                    .raddr3(dec_i1_rs2_d[4:0]), .rden3(dec_i1_rs2_en_d),
+                    .raddr0(dec_i0_rs1_d[4:0]), .rden0(dec_i0_rs1_en_d & ~dec_i0_fp_rs1_en_d),
+                    .raddr1(dec_i0_rs2_d[4:0]), .rden1(dec_i0_rs2_en_d & ~dec_i0_fp_rs2_en_d),
+                    .raddr2(dec_i1_rs1_d[4:0]), .rden2(dec_i1_rs1_en_d & ~dec_i1_fp_rs1_en_d),
+                    .raddr3(dec_i1_rs2_d[4:0]), .rden3(dec_i1_rs2_en_d & ~dec_i1_fp_rs2_en_d),
 
-                    .waddr0(dec_i0_waddr_wb[4:0]),         .wen0(dec_i0_wen_wb),         .wd0(dec_i0_wdata_wb[31:0]),
-                    .waddr1(dec_i1_waddr_wb[4:0]),         .wen1(dec_i1_wen_wb),         .wd1(dec_i1_wdata_wb[31:0]),
-                    .waddr2(dec_nonblock_load_waddr[4:0]), .wen2(dec_nonblock_load_wen), .wd2(lsu_nonblock_load_data[31:0]),
+                    .waddr0(dec_i0_waddr_wb[4:0]),         .wen0(dec_i0_wen_wb & ~dec_i0_fp_wen_wb),                 .wd0(dec_i0_wdata_wb[31:0]),
+                    .waddr1(dec_i1_waddr_wb[4:0]),         .wen1(dec_i1_wen_wb),                                     .wd1(dec_i1_wdata_wb[31:0]),
+                    .waddr2(dec_nonblock_load_waddr[4:0]), .wen2(dec_nonblock_load_wen & ~dec_nonblock_load_fp_wen), .wd2(lsu_nonblock_load_data[31:0]),
 
                     // outputs
                     .rd0(gpr_i0_rs1_d[31:0]), .rd1(gpr_i0_rs2_d[31:0]),
@@ -570,9 +573,9 @@ module dec
                     .raddr2(dec_i1_fp_rs1_d[4:0]), .rden2(dec_i1_fp_rs1_en_d),
                     .raddr3(dec_i1_fp_rs2_d[4:0]), .rden3(dec_i1_fp_rs2_en_d),
 
-                    .waddr0(dec_i0_waddr_wb[4:0]),         .wen0(dec_i0_wen_wb),         .wd0(dec_i0_wdata_wb[31:0]),
-                    .waddr1(dec_i1_waddr_wb[4:0]),         .wen1(dec_i1_wen_wb),         .wd1(dec_i1_wdata_wb[31:0]),
-                    .waddr2(dec_nonblock_load_waddr[4:0]), .wen2(dec_nonblock_load_wen), .wd2(lsu_nonblock_load_data[31:0]),
+                    .waddr0(dec_i0_waddr_wb[4:0]),         .wen0(dec_i0_fp_wen_wb),         .wd0(dec_i0_wdata_wb[31:0]),
+                    .waddr1(0/*unused*/),                  .wen1(0/*unused*/),              .wd1(0/*unused*/),
+                    .waddr2(dec_nonblock_load_waddr[4:0]), .wen2(dec_nonblock_load_fp_wen), .wd2(lsu_nonblock_load_data[31:0]),
 
                     // outputs
                     .rd0(fpr_i0_rs1_d[31:0]), .rd1(fpr_i0_rs2_d[31:0]),
