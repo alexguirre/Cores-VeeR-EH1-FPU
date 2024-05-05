@@ -253,7 +253,10 @@ module dec_tlu_ctl
    output logic  dec_tlu_dccm_clk_override, // override DCCM clock domain gating
    output logic  dec_tlu_icm_clk_override,  // override ICCM clock domain gating
 
-   output logic [2:0] fcsr_frm
+   output logic [2:0] fcsr_frm,
+
+   input logic [4:0]  exu_fpu_fflags,       // FPU FFLAGS
+   input logic exu_fpu_finish               // cycle FPU finishes
    );
 
    logic [4:0] fcsr_fflags;
@@ -2205,10 +2208,12 @@ module dec_tlu_ctl
    `define FRM    12'h002
    `define FCSR   12'h003
 
-   assign wr_fcsr_fflags_wb = dec_csr_wen_wb_mod & (dec_csr_wraddr_wb[11:0] == `FCSR | dec_csr_wraddr_wb[11:0] == `FFLAGS);
+   assign wr_fcsr_fflags_wb = (dec_csr_wen_wb_mod & (dec_csr_wraddr_wb[11:0] == `FCSR | dec_csr_wraddr_wb[11:0] == `FFLAGS)) |
+                              exu_fpu_finish; // write the FFLAGS from the last FPU operation
    assign wr_fcsr_frm_wb    = dec_csr_wen_wb_mod & (dec_csr_wraddr_wb[11:0] == `FCSR | dec_csr_wraddr_wb[11:0] == `FRM);
 
-   assign fcsr_fflags_in = dec_csr_wrdata_wb[4:0];
+   assign fcsr_fflags_in = ({5{~exu_fpu_finish}} & dec_csr_wrdata_wb[4:0]) |
+                           ({5{ exu_fpu_finish}} & exu_fpu_fflags);
    assign fcsr_frm_in = ({3{dec_csr_wraddr_wb[11:0] == `FCSR}} & dec_csr_wrdata_wb[7:5]) |
                         ({3{dec_csr_wraddr_wb[11:0] == `FRM}}  & dec_csr_wrdata_wb[2:0]);
 

@@ -145,7 +145,8 @@ module dec
    input logic exu_div_finish,              // cycle div finishes
 
    input logic exu_fpu_stall,               // stall decode for FPU executing
-   input logic [31:0]  exu_fpu_result,      // final FPU result
+   input logic [31:0] exu_fpu_result,       // final FPU result
+   input logic [4:0]  exu_fpu_fflags,       // FPU FFLAGS
    input logic exu_fpu_finish,              // cycle FPU finishes
 
    input logic [31:0] exu_mul_result_e3,    // 32b mul result

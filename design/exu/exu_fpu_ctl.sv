@@ -22,7 +22,8 @@ module exu_fpu_ctl
    output logic        finish,           // Finish
    output logic        fpu_stall,        // FPU is running
 
-   output logic [31:0] out
+   output logic [31:0] out,
+   output logic [4:0]  out_fcsr_fflags
 
   );
    logic         flush_lower_ff;
@@ -44,7 +45,7 @@ module exu_fpu_ctl
    // FPU outputs
    logic [31:0]        fpu_result;
    logic [31:0]        fpu_result_ff;
-   fpnew_pkg::status_t fpu_status; // TODO(FPU): write status to fcsr fflags
+   fpnew_pkg::status_t fpu_status, fpu_status_ff;
    logic               fpu_busy;
 
 
@@ -60,7 +61,8 @@ module exu_fpu_ctl
    rvdffe #(32)               bff          (.*, .en(fp.valid & ~flush_lower_ff), .din(b[31:0]), .dout(b_ff[31:0]));
    rvdffe #(32)               cff          (.*, .en(fp.valid & ~flush_lower_ff), .din(c[31:0]), .dout(c_ff[31:0]));
 
-   rvdffe #(32)               resultff     (.*, .en(fpu_out_valid), .din(fpu_result[31:0]), .dout(fpu_result_ff[31:0]));
+   rvdffe #(32)               resultff     (.*,                   .en(fpu_out_valid), .din(fpu_result[31:0]), .dout(fpu_result_ff[31:0]));
+   rvdffs #(5)                statusff     (.*, .clk(active_clk), .en(fpu_out_valid), .din(fpu_status[4:0]),  .dout(fpu_status_ff[4:0]));
 
 
    assign valid_e1                = valid_ff_e1 & ~flush_lower_ff;
@@ -152,6 +154,7 @@ module exu_fpu_ctl
    );
 
    assign out[31:0] = fpu_result_ff[31:0];
+   assign out_fcsr_fflags[4:0] = fpu_status_ff[4:0];
    assign finish = fpu_out_valid;
    assign fpu_stall = fpu_busy;
 

@@ -747,6 +747,7 @@ module veer
    logic dec_i1_fpu_d;
 
    logic [31:0] exu_fpu_result;
+   logic [4:0]  exu_fpu_fflags;
    logic exu_fpu_finish;
    logic exu_fpu_stall;
 

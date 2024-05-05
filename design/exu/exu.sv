@@ -167,6 +167,7 @@ module exu
    output logic [31:1] exu_npc_e4,                                     // Divide NPC
 
    output logic [31:0]  exu_fpu_result,                                // FPU result
+   output logic [4:0]   exu_fpu_fflags,                                // FPU FFLAGS
    output logic exu_fpu_finish,                                        // FPU is finished
    output logic exu_fpu_stall,                                         // FPU is running
    // TODO(FPU): exu_npc_e4 for FPU?
@@ -414,15 +415,16 @@ module exu
 
 
    exu_fpu_ctl fpu_e1    (.*,
-                          .flush_lower   ( dec_tlu_flush_lower_wb      ),   // I
-                          .fp            ( fpu_p                       ),   // I
-                          .a             ( fpu_rs1_d[31:0]             ),   // I
-                          .b             ( fpu_rs2_d[31:0]             ),   // I
-                          .c             ( fpu_rs3_d[31:0]             ),   // I
-                          .valid_ff_e1   ( fpu_valid_e1                ),   // O
-                          .fpu_stall     ( exu_fpu_stall               ),   // O
-                          .finish        ( exu_fpu_finish              ),   // O
-                          .out           ( exu_fpu_result[31:0]        ));  // O
+                          .flush_lower     ( dec_tlu_flush_lower_wb    ),   // I
+                          .fp              ( fpu_p                     ),   // I
+                          .a               ( fpu_rs1_d[31:0]           ),   // I
+                          .b               ( fpu_rs2_d[31:0]           ),   // I
+                          .c               ( fpu_rs3_d[31:0]           ),   // I
+                          .valid_ff_e1     ( fpu_valid_e1              ),   // O
+                          .fpu_stall       ( exu_fpu_stall             ),   // O
+                          .finish          ( exu_fpu_finish            ),   // O
+                          .out             ( exu_fpu_result[31:0]      ),   // O
+                          .out_fcsr_fflags ( exu_fpu_fflags[4:0]       ));  // O
 
 
    predict_pkt_t i0_predict_newp_d, i1_predict_newp_d;
