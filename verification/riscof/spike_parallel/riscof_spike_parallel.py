@@ -82,6 +82,8 @@ class spike_parallel(pluginTemplate):
             self.isa += 'm'
         if "Zmmul" in ispec["ISA"]:
             self.isa += 'm'
+        if "F" in ispec["ISA"]:
+            self.isa += 'f'
         if "C" in ispec["ISA"]:
             self.isa += 'c'
 

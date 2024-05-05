@@ -306,6 +306,8 @@ module dec
    output logic [11:0] dec_lsu_offset_d,           // 12b offset for load/store addresses
    output logic        dec_i0_lsu_d,               // is load/store
    output logic        dec_i1_lsu_d,
+   output logic        dec_i0_fp_lsu_d,            // is load/store
+   output logic        dec_i1_fp_lsu_d,
 
    output logic        flush_final_e3,             // final flush
    output logic        i0_flush_final_e3,          // final flush from i0
@@ -412,8 +414,9 @@ module dec
    output logic  dec_tlu_dccm_clk_override,          // override DCCM clock domain gating
    output logic  dec_tlu_icm_clk_override,           // override ICCM clock domain gating
 
-   input  logic        scan_mode
+   input  logic        scan_mode,
 
+   output logic [2:0] fcsr_frm
    );
 
    localparam GPR_BANKS = 1;

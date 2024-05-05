@@ -16,6 +16,8 @@ module exu_fpu_ctl
 
    input logic         flush_lower,      // Flush pipeline
 
+   input logic [2:0]   fcsr_frm,         // FCSR rounding mode
+
    output logic        valid_ff_e1,      // Valid E1 stage
    output logic        finish,           // Finish
    output logic        fpu_stall,        // FPU is running
@@ -42,7 +44,7 @@ module exu_fpu_ctl
    // FPU outputs
    logic [31:0]        fpu_result;
    logic [31:0]        fpu_result_ff;
-   fpnew_pkg::status_t fpu_status; // TODO(FPU): write status to fcsr
+   fpnew_pkg::status_t fpu_status; // TODO(FPU): write status to fcsr fflags
    logic               fpu_busy;
 
 
@@ -78,9 +80,13 @@ module exu_fpu_ctl
                       ({4{fp_ff.sgnj | fp_ff.sgnjn | fp_ff.sgnjx}} & fpnew_pkg::SGNJ));
      assign fpu_op_mod = fp_ff.sub;
 
-     // minmax and sign injection operations encoded in rounding mode
-     // TODO(FPU): dynamic rounding mode read from fcsr
-     assign fpu_rnd_mode = fp_ff.rm;
+     // note: minmax and sign injection operations are encoded in rounding mode
+     // TODO(FPU): if rm is set to an invalid value it should raise an illegal
+     // instruction exception
+     `define RM_DYN    3'b111
+     assign fpu_rnd_mode = ({3{fp_ff.rm == `RM_DYN}} & fcsr_frm) |
+                           ({3{fp_ff.rm != `RM_DYN}} & fp_ff.rm);
+     `undef RM_DYN
 
      if (fp_ff.add | fp_ff.sub) begin
         assign fpu_operands[1] = a_ff;

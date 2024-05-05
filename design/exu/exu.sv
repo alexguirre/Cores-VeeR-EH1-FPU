@@ -141,8 +141,13 @@ module exu
 
    input fpu_pkt_t  fpu_p,
 
+   input logic [2:0]   fcsr_frm,                                       // FCSR rounding mode
+
    input logic   dec_i0_lsu_d,                                         // Bypass control for LSU operand bus
    input logic   dec_i1_lsu_d,                                         // Bypass control for LSU operand bus
+
+   input logic   dec_i0_fp_lsu_d,                                      // Bypass control for LSU operand bus
+   input logic   dec_i1_fp_lsu_d,                                      // Bypass control for LSU operand bus
 
    input logic   dec_csr_ren_d,                                        // Clear I0 RS1 primary
 
@@ -219,7 +224,6 @@ module exu
    output logic exu_pmu_i1_br_misp,                                    // to PMU - I1 E4 branch mispredict
    output logic exu_pmu_i1_br_ataken,                                  // to PMU - I1 E4 taken
    output logic exu_pmu_i1_pc4                                         // to PMU - I1 E4 PC
-
    );
 
 
@@ -320,10 +324,14 @@ module exu
                                  ({32{  dec_i0_rs1_bypass_en_d &  dec_i0_lsu_d               }} & i0_rs1_bypass_data_d[31:0]) |
                                  ({32{  dec_i1_rs1_bypass_en_d & ~dec_i0_lsu_d & dec_i1_lsu_d}} & i1_rs1_bypass_data_d[31:0]);
 
-   assign exu_lsu_rs2_d[31:0]  = ({32{ ~dec_i0_rs2_bypass_en_d &  dec_i0_lsu_d               }} & gpr_i0_rs2_d[31:0]        ) |
-                                 ({32{ ~dec_i1_rs2_bypass_en_d & ~dec_i0_lsu_d & dec_i1_lsu_d}} & gpr_i1_rs2_d[31:0]        ) |
-                                 ({32{  dec_i0_rs2_bypass_en_d &  dec_i0_lsu_d               }} & i0_rs2_bypass_data_d[31:0]) |
-                                 ({32{  dec_i1_rs2_bypass_en_d & ~dec_i0_lsu_d & dec_i1_lsu_d}} & i1_rs2_bypass_data_d[31:0]);
+   // For FSW rs2 is the source fp register, so if fp_lsu is set we need to get the fp register value
+   assign exu_lsu_rs2_d[31:0]  = ({32{ ~dec_i0_rs2_bypass_en_d &  dec_i0_lsu_d                & ~dec_i0_fp_lsu_d}} & gpr_i0_rs2_d[31:0]        ) |
+                                 ({32{ ~dec_i1_rs2_bypass_en_d & ~dec_i0_lsu_d & dec_i1_lsu_d & ~dec_i1_fp_lsu_d}} & gpr_i1_rs2_d[31:0]        ) |
+                                 ({32{  dec_i0_rs2_bypass_en_d &  dec_i0_lsu_d                & ~dec_i0_fp_lsu_d}} & i0_rs2_bypass_data_d[31:0]) |
+                                 ({32{  dec_i1_rs2_bypass_en_d & ~dec_i0_lsu_d & dec_i1_lsu_d & ~dec_i1_fp_lsu_d}} & i1_rs2_bypass_data_d[31:0]) |
+                                 ({32{                            dec_i0_lsu_d                & dec_i0_fp_lsu_d}}  & fpr_i0_rs2_d[31:0]        ) |
+                                 ({32{                           ~dec_i0_lsu_d & dec_i1_lsu_d & dec_i1_fp_lsu_d}}  & fpr_i1_rs2_d[31:0]        );
+
 
    assign mul_rs1_d[31:0]      = ({32{ ~dec_i0_rs1_bypass_en_d &  dec_i0_mul_d               }} & gpr_i0_rs1_d[31:0]        ) |
                                  ({32{ ~dec_i1_rs1_bypass_en_d & ~dec_i0_mul_d & dec_i1_mul_d}} & gpr_i1_rs1_d[31:0]        ) |
@@ -349,7 +357,8 @@ module exu
 
 
 
-   // TODO(FPU): use FP register file
+
+   // TODO(FPU): we probably shouldn't use rsN_bypass_data here
    assign fpu_rs1_d[31:0]      = ({32{ ~dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & fpr_i0_rs1_d[31:0]) |
                                  ({32{ ~dec_i1_rs1_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs1_d[31:0]) |
                                  ({32{  dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & i0_rs1_bypass_data_d[31:0]) |

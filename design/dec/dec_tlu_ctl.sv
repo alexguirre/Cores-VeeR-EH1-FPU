@@ -251,9 +251,12 @@ module dec_tlu_ctl
    output logic  dec_tlu_bus_clk_override,  // override bus clock domain gating
    output logic  dec_tlu_pic_clk_override,  // override PIC clock domain gating
    output logic  dec_tlu_dccm_clk_override, // override DCCM clock domain gating
-   output logic  dec_tlu_icm_clk_override   // override ICCM clock domain gating
+   output logic  dec_tlu_icm_clk_override,  // override ICCM clock domain gating
 
+   output logic [2:0] fcsr_frm
    );
+
+   logic [4:0] fcsr_fflags;
 
    logic         dec_csr_wen_wb_mod, clk_override, e4e5_int_clk, nmi_lsu_load_type, nmi_lsu_store_type, nmi_int_detected_f, nmi_lsu_load_type_f,
                  nmi_lsu_store_type_f, allow_dbg_halt_csr_write, dbg_cmd_done_ns, i_cpu_run_req_d1_raw, debug_mode_status, lsu_single_ecc_error_wb,
@@ -388,8 +391,10 @@ module dec_tlu_ctl
    logic wr_mpmc_wb, set_mie_pmu_fw_halt;
    logic [1:1] mpmc_b_ns, mpmc, mpmc_b;
 
-   logic [31:0] fcsr;
-   logic wr_fcsr_wb;
+   logic [4:0] fcsr_fflags_in;
+   logic [2:0] fcsr_frm_in;
+   logic wr_fcsr_fflags_wb;
+   logic wr_fcsr_frm_wb;
 
    // internal timer, isolated for size reasons
    logic [31:0] dec_timer_rddata_d;
@@ -2193,17 +2198,22 @@ module dec_tlu_ctl
 
    // ----------------------------------------------------------------------
    // FCSR (RW)
-   // [31:8] : Reserved
+   // [31:8] : Reserved, read 0x0
    // [7:5]  : Rounding mode, frm
    // [4:0]  : Exceptions, fflags
    `define FFLAGS 12'h001
    `define FRM    12'h002
    `define FCSR   12'h003
 
-   assign wr_fcsr_wb = dec_csr_wen_wb_mod & (dec_csr_wraddr_wb[11:0] == `FCSR);
-   // TODO(FPU): support writing to FRM and FFLAGS addresses
+   assign wr_fcsr_fflags_wb = dec_csr_wen_wb_mod & (dec_csr_wraddr_wb[11:0] == `FCSR | dec_csr_wraddr_wb[11:0] == `FFLAGS);
+   assign wr_fcsr_frm_wb    = dec_csr_wen_wb_mod & (dec_csr_wraddr_wb[11:0] == `FCSR | dec_csr_wraddr_wb[11:0] == `FRM);
 
-   rvdffe #(32)  fcsr_ff (.*, .en(wr_fcsr_wb), .din(dec_csr_wrdata_wb[31:0]), .dout(fcsr[31:0]));
+   assign fcsr_fflags_in = dec_csr_wrdata_wb[4:0];
+   assign fcsr_frm_in = ({3{dec_csr_wraddr_wb[11:0] == `FCSR}} & dec_csr_wrdata_wb[7:5]) |
+                        ({3{dec_csr_wraddr_wb[11:0] == `FRM}}  & dec_csr_wrdata_wb[2:0]);
+
+   rvdffs #(3) fcsr_frm_ff    (.*, .clk(active_clk), .en(wr_fcsr_frm_wb),    .din(fcsr_frm_in[2:0]),    .dout(fcsr_frm[2:0]));
+   rvdffs #(5) fcsr_fflags_ff (.*, .clk(active_clk), .en(wr_fcsr_fflags_wb), .din(fcsr_fflags_in[4:0]), .dout(fcsr_fflags[4:0]));
 
 
    //--------------------------------------------------------------------------------
@@ -2741,9 +2751,9 @@ assign dec_csr_rddata_d[31:0] = ( ({32{csr_misa}}      & 32'h40001104) |
                                   ({32{csr_mpmc}}      & {30'b0, mpmc[1], 1'b0}) |
                                   ({32{csr_mgpmc}}     & {31'b0, mgpmc}) |
                                   ({32{dec_timer_read_d}} & dec_timer_rddata_d[31:0]) |
-                                  ({32{csr_fflags}}    & {27'b0, fcsr[4:0]}) |
-                                  ({32{csr_frm}}       & {29'b0, fcsr[7:5]}) |
-                                  ({32{csr_fcsr}}      & fcsr[31:0])
+                                  ({32{csr_fflags}}    & {27'b0, fcsr_fflags[4:0]}) |
+                                  ({32{csr_frm}}       & {29'b0, fcsr_frm[2:0]}) |
+                                  ({32{csr_fcsr}}      & {24'b0, fcsr_frm[2:0], fcsr_fflags[4:0]})
                                   );
 
                                   always begin

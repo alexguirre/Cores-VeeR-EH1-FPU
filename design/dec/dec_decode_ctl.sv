@@ -215,6 +215,8 @@ module dec_decode_ctl
    output logic [11:0] dec_lsu_offset_d,
    output logic        dec_i0_lsu_d,        // chose which gpr value to use
    output logic        dec_i1_lsu_d,
+   output logic        dec_i0_fp_lsu_d,     // chose which gpr value to use
+   output logic        dec_i1_fp_lsu_d,
    output logic        dec_i0_mul_d,        // chose which gpr value to use
    output logic        dec_i1_mul_d,
    output logic        dec_i0_div_d,        // chose which gpr value to use
@@ -1107,6 +1109,9 @@ end : cam_array
    assign dec_i0_lsu_d = i0_dp.lsu;
    assign dec_i1_lsu_d = i1_dp.lsu;
 
+   assign dec_i0_fp_lsu_d = i0_dp.fp_lsu;
+   assign dec_i1_fp_lsu_d = i1_dp.fp_lsu;
+
    assign dec_i0_mul_d = i0_dp.mul;
    assign dec_i1_mul_d = i1_dp.mul;
 
@@ -1202,13 +1207,13 @@ end : cam_array
 
 
    assign dec_i0_fp_rs1_en_d = i0_dp.fpu & i0_dp.rs1;
-   assign dec_i0_fp_rs2_en_d = i0_dp.fpu & i0_dp.rs2;
-   //TODO rs3
+   assign dec_i0_fp_rs2_en_d = (i0_dp.fpu | i0_dp.fp_lsu) & i0_dp.rs2;
+   //TODO(FPU): rs3
    assign i0_fp_rd_en_d = i0_dp.fpu & i0_dp.rd;
 
    assign dec_i0_fp_rs1_d[4:0] = i0r.rs1[4:0];
    assign dec_i0_fp_rs2_d[4:0] = i0r.rs2[4:0];
-   //TODO rs3
+   //TODO(FPU): rs3
    assign i0_fp_rd_d[4:0] = i0r.rd[4:0];
 
 
@@ -1342,7 +1347,7 @@ end : cam_array
 
 
    assign dec_i1_fp_rs1_en_d = i1_dp.fpu & i1_dp.rs1;
-   assign dec_i1_fp_rs2_en_d = i1_dp.fpu & i1_dp.rs2;
+   assign dec_i1_fp_rs2_en_d = (i1_dp.fpu | i1_dp.fp_lsu) & i1_dp.rs2;
    assign i1_fp_rd_en_d = i1_dp.fpu & i1_dp.rd;
 
    assign dec_i1_fp_rs1_d[4:0] = i1r.rs1[4:0];

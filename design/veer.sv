@@ -676,6 +676,8 @@ module veer
    logic [11:0] dec_lsu_offset_d;
    logic        dec_i0_lsu_d;       // chose which gpr value to use
    logic        dec_i1_lsu_d;
+   logic        dec_i0_fp_lsu_d;       // chose which gpr value to use
+   logic        dec_i1_fp_lsu_d;
 
    logic [31:0]  lsu_result_dc3;
    logic [31:0]  lsu_result_corr_dc4;    // ECC corrected lsu load data
@@ -737,6 +739,7 @@ module veer
    logic dec_i0_div_d;
    logic dec_i1_div_d;
 
+   logic [2:0] fcsr_frm;
 
    fpu_pkt_t  fpu_p;
 

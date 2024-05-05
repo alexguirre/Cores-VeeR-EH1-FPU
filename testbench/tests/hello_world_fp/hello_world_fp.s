@@ -45,6 +45,11 @@ _start:
     li x4, 0xDEADBEEF
     fscsr x4
     frcsr x5
+    frflags x5
+    frrm x5
+
+    li x4, 0
+    fscsr x4
 
 
     la x4, value1
