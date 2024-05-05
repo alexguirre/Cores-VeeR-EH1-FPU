@@ -604,8 +604,10 @@ module veer
 
    logic  [31:0] fpr_i0_rs1_d;
    logic  [31:0] fpr_i0_rs2_d;
+   logic  [31:0] fpr_i0_rs3_d;
    logic  [31:0] fpr_i1_rs1_d;
    logic  [31:0] fpr_i1_rs2_d;
+   logic  [31:0] fpr_i1_rs3_d;
 
    logic [31:0] i0_rs1_bypass_data_d;
    logic [31:0] i0_rs2_bypass_data_d;

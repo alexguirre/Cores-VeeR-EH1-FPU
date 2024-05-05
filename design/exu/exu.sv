@@ -92,8 +92,10 @@ module exu
 
    input logic [31:0] fpr_i0_rs1_d,
    input logic [31:0] fpr_i0_rs2_d,
+   input logic [31:0] fpr_i0_rs3_d,
    input logic [31:0] fpr_i1_rs1_d,
    input logic [31:0] fpr_i1_rs2_d,
+   input logic [31:0] fpr_i1_rs3_d,
 
    input logic [12:1] dec_i0_br_immed_d,                               // Branch immediate
    input logic [12:1] dec_i1_br_immed_d,                               // Branch immediate
@@ -369,7 +371,9 @@ module exu
                                  ({32{ ~dec_i1_rs2_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs2_d[31:0]) |
                                  ({32{  dec_i0_rs2_bypass_en_d &  dec_i0_fpu_d               }} & i0_rs2_bypass_data_d[31:0]) |
                                  ({32{  dec_i1_rs2_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & i1_rs2_bypass_data_d[31:0]);
-  // TODO(FPU): rs3 for fpu
+
+   assign fpu_rs3_d[31:0]      = ({32{  dec_i0_fpu_d               }} & fpr_i0_rs3_d[31:0]) |
+                                 ({32{ ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs3_d[31:0]);
 
 
 

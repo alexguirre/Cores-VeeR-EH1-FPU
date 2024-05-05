@@ -77,10 +77,12 @@ module exu_fpu_ctl
      assign fpu_op = (({4{fp_ff.add | fp_ff.sub}}                  & fpnew_pkg::ADD)    |
                       ({4{fp_ff.mul}}                              & fpnew_pkg::MUL)    |
                       ({4{fp_ff.div}}                              & fpnew_pkg::DIV)    |
+                      ({4{fp_ff.madd | fp_ff.msub}}                & fpnew_pkg::FMADD)  |
+                      ({4{fp_ff.nmsub | fp_ff.nmadd}}              & fpnew_pkg::FNMSUB) |
                       ({4{fp_ff.sqrt}}                             & fpnew_pkg::SQRT)   |
                       ({4{fp_ff.min | fp_ff.max}}                  & fpnew_pkg::MINMAX) |
                       ({4{fp_ff.sgnj | fp_ff.sgnjn | fp_ff.sgnjx}} & fpnew_pkg::SGNJ));
-     assign fpu_op_mod = fp_ff.sub;
+     assign fpu_op_mod = fp_ff.sub | fp_ff.msub | fp_ff.nmadd;
 
      // note: minmax and sign injection operations are encoded in rounding mode
      // TODO(FPU): if rm is set to an invalid value it should raise an illegal
@@ -101,12 +103,6 @@ module exu_fpu_ctl
    end
 
   /* TODO(FPU): instructions not handled
-
-     TODO(FPU): fused-multiply-add needs to read register rs3
-         logic       madd;
-         logic       msub;
-         logic       nmsub;
-         logic       nmadd;
 
      TODO(FPU): conversion instructions need to read/write integer registers
          logic       cvt;

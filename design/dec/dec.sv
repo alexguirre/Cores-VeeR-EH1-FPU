@@ -268,8 +268,10 @@ module dec
 
    output logic  [31:0] fpr_i0_rs1_d,               // fpr rs1 data
    output logic  [31:0] fpr_i0_rs2_d,               // fpr rs2 data
+   output logic  [31:0] fpr_i0_rs3_d,               // fpr rs3 data
    output logic  [31:0] fpr_i1_rs1_d,
    output logic  [31:0] fpr_i1_rs2_d,
+   output logic  [31:0] fpr_i1_rs3_d,
 
    output logic [31:0] dec_i0_immed_d,              // immediate data
    output logic [31:0] dec_i1_immed_d,
@@ -452,16 +454,20 @@ module dec
 
    logic        dec_i0_fp_rs1_en_d;
    logic        dec_i0_fp_rs2_en_d;
+   logic        dec_i0_fp_rs3_en_d;
 
    logic [4:0]  dec_i0_fp_rs1_d;
    logic [4:0]  dec_i0_fp_rs2_d;
+   logic [4:0]  dec_i0_fp_rs3_d;
 
 
    logic        dec_i1_fp_rs1_en_d;
    logic        dec_i1_fp_rs2_en_d;
+   logic        dec_i1_fp_rs3_en_d;
 
    logic [4:0]  dec_i1_fp_rs1_d;
    logic [4:0]  dec_i1_fp_rs2_d;
+   logic [4:0]  dec_i1_fp_rs3_d;
 
 
    logic [31:0] dec_i0_instr_d, dec_i1_instr_d;
@@ -574,16 +580,18 @@ module dec
                     // inputs
                     .raddr0(dec_i0_fp_rs1_d[4:0]), .rden0(dec_i0_fp_rs1_en_d),
                     .raddr1(dec_i0_fp_rs2_d[4:0]), .rden1(dec_i0_fp_rs2_en_d),
-                    .raddr2(dec_i1_fp_rs1_d[4:0]), .rden2(dec_i1_fp_rs1_en_d),
-                    .raddr3(dec_i1_fp_rs2_d[4:0]), .rden3(dec_i1_fp_rs2_en_d),
+                    .raddr2(dec_i0_fp_rs3_d[4:0]), .rden2(dec_i0_fp_rs3_en_d),
+                    .raddr3(dec_i1_fp_rs1_d[4:0]), .rden3(dec_i1_fp_rs1_en_d),
+                    .raddr4(dec_i1_fp_rs2_d[4:0]), .rden4(dec_i1_fp_rs2_en_d),
+                    .raddr5(dec_i1_fp_rs3_d[4:0]), .rden5(dec_i1_fp_rs3_en_d),
 
                     .waddr0(dec_i0_waddr_wb[4:0]),         .wen0(dec_i0_fp_wen_wb),         .wd0(dec_i0_wdata_wb[31:0]),
                     .waddr1(0/*unused*/),                  .wen1(0/*unused*/),              .wd1(0/*unused*/),
                     .waddr2(dec_nonblock_load_waddr[4:0]), .wen2(dec_nonblock_load_fp_wen), .wd2(lsu_nonblock_load_data[31:0]),
 
                     // outputs
-                    .rd0(fpr_i0_rs1_d[31:0]), .rd1(fpr_i0_rs2_d[31:0]),
-                    .rd2(fpr_i1_rs1_d[31:0]), .rd3(fpr_i1_rs2_d[31:0])
+                    .rd0(fpr_i0_rs1_d[31:0]), .rd1(fpr_i0_rs2_d[31:0]), .rd2(fpr_i0_rs3_d[31:0]),
+                    .rd3(fpr_i1_rs1_d[31:0]), .rd4(fpr_i1_rs2_d[31:0]), .rd5(fpr_i1_rs3_d[31:0])
                     );
 
 // Trigger

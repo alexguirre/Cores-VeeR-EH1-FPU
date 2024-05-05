@@ -23,11 +23,15 @@ module dec_fpr_ctl #(parameter GPR_BANKS      = 1,
     input logic [4:0] raddr1,
     input logic [4:0] raddr2,
     input logic [4:0] raddr3,
+    input logic [4:0] raddr4,
+    input logic [4:0] raddr5,
 
     input logic       rden0,   // read enables
     input logic       rden1,
     input logic       rden2,
     input logic       rden3,
+    input logic       rden4,
+    input logic       rden5,
 
     input logic [4:0] waddr0,  // logical write addresses
     input logic [4:0] waddr1,
@@ -51,6 +55,8 @@ module dec_fpr_ctl #(parameter GPR_BANKS      = 1,
     output logic [31:0] rd1,
     output logic [31:0] rd2,
     output logic [31:0] rd3,
+    output logic [31:0] rd4,
+    output logic [31:0] rd5,
 
     input  logic        scan_mode
 );
@@ -80,6 +86,8 @@ module dec_fpr_ctl #(parameter GPR_BANKS      = 1,
       rd1[31:0] = 32'b0;
       rd2[31:0] = 32'b0;
       rd3[31:0] = 32'b0;
+      rd4[31:0] = 32'b0;
+      rd5[31:0] = 32'b0;
       w0v[31:0] = 32'b0;
       w1v[31:0] = 32'b0;
       w2v[31:0] = 32'b0;
@@ -92,6 +100,8 @@ module dec_fpr_ctl #(parameter GPR_BANKS      = 1,
             rd1[31:0] |= ({32{rden1 & (raddr1[4:0]== 5'(j)) & (gpr_bank_id[GPR_BANKS_LOG2-1:0] == 1'(i))}} & gpr_out[i][j][31:0]);
             rd2[31:0] |= ({32{rden2 & (raddr2[4:0]== 5'(j)) & (gpr_bank_id[GPR_BANKS_LOG2-1:0] == 1'(i))}} & gpr_out[i][j][31:0]);
             rd3[31:0] |= ({32{rden3 & (raddr3[4:0]== 5'(j)) & (gpr_bank_id[GPR_BANKS_LOG2-1:0] == 1'(i))}} & gpr_out[i][j][31:0]);
+            rd4[31:0] |= ({32{rden4 & (raddr4[4:0]== 5'(j)) & (gpr_bank_id[GPR_BANKS_LOG2-1:0] == 1'(i))}} & gpr_out[i][j][31:0]);
+            rd5[31:0] |= ({32{rden5 & (raddr5[4:0]== 5'(j)) & (gpr_bank_id[GPR_BANKS_LOG2-1:0] == 1'(i))}} & gpr_out[i][j][31:0]);
         end
      end
 
