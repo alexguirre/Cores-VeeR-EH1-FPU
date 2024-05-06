@@ -9,17 +9,6 @@
 .global _start
 _start:
 
-    // Clear minstret
-    //csrw minstret, zero
-    //csrw minstreth, zero
-    // Set up MTVEC - not expecting to use it though
-    //li x1, RV_ICCM_SADR
-    //csrw mtvec, x1
-    // Enable Caches in MRAC
-    //li x1, 0x5f555555
-    //csrw 0x7c0, x1
-
-
     // Fill some random values to make sure we are using fp registers and not int registers
     li x1, 0xABCD1234
     li x2, 0xDEADBEEF
