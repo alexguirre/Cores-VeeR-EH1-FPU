@@ -15,6 +15,7 @@
 
 // Floating-point registers
 // Same as dec_gpr_ctl but with 32 registers instead of 31
+// Can also do 6 reads at the same time instead of 4, to support rs3 in FMA instructions
 module dec_fpr_ctl #(parameter GPR_BANKS      = 1,
                                GPR_BANKS_LOG2 = 1)  (
     input logic active_clk,

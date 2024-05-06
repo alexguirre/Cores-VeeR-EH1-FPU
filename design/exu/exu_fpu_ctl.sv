@@ -150,7 +150,8 @@ module exu_fpu_ctl
    );
 
    assign out[31:0] = fpu_result_ff[31:0];
-   assign out_fcsr_fflags[4:0] = fpu_status_ff[4:0];
+   assign out_fcsr_fflags[4:0] = ({5{ fpu_out_valid}} & fpu_status[4:0]) |
+                                 ({5{~fpu_out_valid}} & fpu_status_ff[4:0]); // keep the last fflags until next op
    assign finish = fpu_out_valid;
    assign fpu_stall = fpu_busy;
 
