@@ -152,6 +152,7 @@ typedef struct packed {
                        logic i0div;
                        logic i0fpu;
                        logic i0v;
+                       logic i0vfp; // write-back to FP register
                        logic i0valid;
                        logic i0secondary;
                        logic [1:0] i0rs1bype2;
@@ -247,9 +248,7 @@ typedef struct packed {
                        logic alu;
                        logic rs1;
                        logic rs2;
-                       logic rs3;
                        logic imm12;
-                       logic rm;
                        logic rd;
                        logic shimm5;
                        logic imm20;
@@ -297,6 +296,10 @@ typedef struct packed {
                        logic pm_alu;
                        logic fpu;
                        logic fp_lsu;
+                       logic fp_rs1;
+                       logic fp_rs2;
+                       logic fp_rs3;
+                       logic fp_rd;
                        logic fp_madd;
                        logic fp_msub;
                        logic fp_nmsub;
@@ -311,7 +314,8 @@ typedef struct packed {
                        logic fp_sgnjx;
                        logic fp_min;
                        logic fp_max;
-                       logic fp_cvt;
+                       logic fp_cvt_f2i;
+                       logic fp_cvt_i2f;
                        logic fp_mv;
                        logic fp_eq;
                        logic fp_lt;
@@ -352,12 +356,15 @@ typedef struct packed {
                        logic       sgnjx;
                        logic       min;
                        logic       max;
-                       logic       cvt;
-                       logic       mv;
+                       logic       cvt_f2i;
+                       logic       cvt_i2f;
+                       logic       cvt_unsigned;
+                       logic       mv_x_w;
+                       logic       mv_w_x;
                        logic       eq;
                        logic       lt;
                        logic       le;
-                       logic       class_;
+                       logic       classify;
                        logic [2:0] rm; // rounding mode
                        } fpu_pkt_t;
 

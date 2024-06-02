@@ -247,7 +247,8 @@ module exu
 
    logic [31:0]  div_rs1_d, div_rs2_d;
 
-   logic [31:0]  fpu_rs1_d, fpu_rs2_d, fpu_rs3_d;
+   logic [31:0]  fpu_rs1_d;
+   logic [31:0]  fpu_fp_rs1_d, fpu_fp_rs2_d, fpu_fp_rs3_d;
 
    logic        i1_valid_e2;
    logic [31:1] npc_e4;
@@ -361,18 +362,18 @@ module exu
 
 
 
-   // TODO(FPU): we probably shouldn't use rsN_bypass_data here
-   assign fpu_rs1_d[31:0]      = ({32{ ~dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & fpr_i0_rs1_d[31:0]) |
-                                 ({32{ ~dec_i1_rs1_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs1_d[31:0]) |
+   assign fpu_rs1_d[31:0]      = ({32{ ~dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & gpr_i0_rs1_d[31:0]) |
+                                 ({32{ ~dec_i1_rs1_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & gpr_i1_rs1_d[31:0]) |
                                  ({32{  dec_i0_rs1_bypass_en_d &  dec_i0_fpu_d               }} & i0_rs1_bypass_data_d[31:0]) |
                                  ({32{  dec_i1_rs1_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & i1_rs1_bypass_data_d[31:0]);
 
-   assign fpu_rs2_d[31:0]      = ({32{ ~dec_i0_rs2_bypass_en_d &  dec_i0_fpu_d               }} & fpr_i0_rs2_d[31:0]) |
-                                 ({32{ ~dec_i1_rs2_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs2_d[31:0]) |
-                                 ({32{  dec_i0_rs2_bypass_en_d &  dec_i0_fpu_d               }} & i0_rs2_bypass_data_d[31:0]) |
-                                 ({32{  dec_i1_rs2_bypass_en_d & ~dec_i0_fpu_d & dec_i1_fpu_d}} & i1_rs2_bypass_data_d[31:0]);
+   assign fpu_fp_rs1_d[31:0]   = ({32{  dec_i0_fpu_d               }} & fpr_i0_rs1_d[31:0]) |
+                                 ({32{ ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs1_d[31:0]);
 
-   assign fpu_rs3_d[31:0]      = ({32{  dec_i0_fpu_d               }} & fpr_i0_rs3_d[31:0]) |
+   assign fpu_fp_rs2_d[31:0]   = ({32{  dec_i0_fpu_d               }} & fpr_i0_rs2_d[31:0]) |
+                                 ({32{ ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs2_d[31:0]);
+
+   assign fpu_fp_rs3_d[31:0]   = ({32{  dec_i0_fpu_d               }} & fpr_i0_rs3_d[31:0]) |
                                  ({32{ ~dec_i0_fpu_d & dec_i1_fpu_d}} & fpr_i1_rs3_d[31:0]);
 
 
@@ -421,9 +422,10 @@ module exu
    exu_fpu_ctl fpu_e1    (.*,
                           .flush_lower     ( dec_tlu_flush_lower_wb    ),   // I
                           .fp              ( fpu_p                     ),   // I
-                          .a               ( fpu_rs1_d[31:0]           ),   // I
-                          .b               ( fpu_rs2_d[31:0]           ),   // I
-                          .c               ( fpu_rs3_d[31:0]           ),   // I
+                          .a               ( fpu_fp_rs1_d[31:0]        ),   // I
+                          .b               ( fpu_fp_rs2_d[31:0]        ),   // I
+                          .c               ( fpu_fp_rs3_d[31:0]        ),   // I
+                          .a_w             ( fpu_rs1_d[31:0]           ),   // I
                           .valid_ff_e1     ( fpu_valid_e1              ),   // O
                           .fpu_stall       ( exu_fpu_stall             ),   // O
                           .finish          ( exu_fpu_finish            ),   // O

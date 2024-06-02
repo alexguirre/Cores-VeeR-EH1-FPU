@@ -910,8 +910,8 @@ end : cam_array
                                  ((wbd.i1rd[4:0] == dec_nonblock_load_waddr[4:0]) & i1_wen_wb);
 
 
-   assign dec_nonblock_load_wen = lsu_nonblock_load_data_valid & |nonblock_load_write[NBLOAD_SIZE_MSB:0] & ~nonblock_load_cancel;
-   assign dec_nonblock_load_fp_wen = dec_nonblock_load_wen & lsu_nonblock_fp;
+   assign dec_nonblock_load_wen = lsu_nonblock_load_data_valid & |nonblock_load_write[NBLOAD_SIZE_MSB:0] & ~nonblock_load_cancel & ~lsu_nonblock_fp;
+   assign dec_nonblock_load_fp_wen = lsu_nonblock_load_data_valid & |nonblock_load_write[NBLOAD_SIZE_MSB:0] & ~nonblock_load_cancel & lsu_nonblock_fp;
 
    always_comb begin
       dec_nonblock_load_waddr[4:0] = '0;
@@ -921,23 +921,24 @@ end : cam_array
       for (int i=0; i<NBLOAD_SIZE; i++) begin
          dec_nonblock_load_waddr[4:0] |= ({5{nonblock_load_write[i]}} & cam[i].rd[4:0]);
 
-         i0_nonblock_load_stall |= dec_i0_rs1_en_d    & cam[i].valid & (cam[i].rd[4:0] == i0r.rs1[4:0]);
-         i0_nonblock_load_stall |= dec_i0_rs2_en_d    & cam[i].valid & (cam[i].rd[4:0] == i0r.rs2[4:0]);
-         i0_nonblock_load_stall |= dec_i0_fp_rs3_en_d & cam[i].valid & (cam[i].rd[4:0] == i0r.rs3[4:0]);
+         // TODO(FPU): extend register address by 1 bit to indicate if it is FP or integer register
+         i0_nonblock_load_stall |= (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & cam[i].valid & (cam[i].rd[4:0] == i0r.rs1[4:0]);
+         i0_nonblock_load_stall |= (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & cam[i].valid & (cam[i].rd[4:0] == i0r.rs2[4:0]);
+         i0_nonblock_load_stall |= dec_i0_fp_rs3_en_d                     & cam[i].valid & (cam[i].rd[4:0] == i0r.rs3[4:0]);
 
-         i1_nonblock_load_stall |= dec_i1_rs1_en_d    & cam[i].valid & (cam[i].rd[4:0] == i1r.rs1[4:0]);
-         i1_nonblock_load_stall |= dec_i1_rs2_en_d    & cam[i].valid & (cam[i].rd[4:0] == i1r.rs2[4:0]);
-         i1_nonblock_load_stall |= dec_i1_fp_rs3_en_d & cam[i].valid & (cam[i].rd[4:0] == i1r.rs3[4:0]);
-
+         i1_nonblock_load_stall |= (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & cam[i].valid & (cam[i].rd[4:0] == i1r.rs1[4:0]);
+         i1_nonblock_load_stall |= (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & cam[i].valid & (cam[i].rd[4:0] == i1r.rs2[4:0]);
+         i1_nonblock_load_stall |= dec_i1_fp_rs3_en_d                     & cam[i].valid & (cam[i].rd[4:0] == i1r.rs3[4:0]);
       end
    end
 
-   assign i0_nonblock_boundary_stall = ((nonblock_load_rd[4:0]==i0r.rs1[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i0_rs1_en_d) |
-                                       ((nonblock_load_rd[4:0]==i0r.rs2[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i0_rs2_en_d) |
+   // TODO(FPU): extend register address by 1 bit to indicate if it is FP or integer register
+   assign i0_nonblock_boundary_stall = ((nonblock_load_rd[4:0]==i0r.rs1[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d)) |
+                                       ((nonblock_load_rd[4:0]==i0r.rs2[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d)) |
                                        ((nonblock_load_rd[4:0]==i0r.rs3[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i0_fp_rs3_en_d);
 
-   assign i1_nonblock_boundary_stall = ((nonblock_load_rd[4:0]==i1r.rs1[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i1_rs1_en_d) |
-                                       ((nonblock_load_rd[4:0]==i1r.rs2[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i1_rs2_en_d) |
+   assign i1_nonblock_boundary_stall = ((nonblock_load_rd[4:0]==i1r.rs1[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d)) |
+                                       ((nonblock_load_rd[4:0]==i1r.rs2[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d)) |
                                        ((nonblock_load_rd[4:0]==i1r.rs3[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i1_fp_rs3_en_d);
 
    assign i0_depend_load_e1_d = ((i0_rs1_class_d.load & (i0_rs1_depth_d[3:0]==4'd1 | i0_rs1_depth_d[3:0]==4'd2)) |
@@ -1181,31 +1182,34 @@ end : cam_array
 
    assign fpu_p.valid = fpu_decode_d;
 
-   assign fpu_p.madd =   (i0_dp.fpu) ? i0_dp.fp_madd :  i1_dp.fp_madd;
-   assign fpu_p.msub =   (i0_dp.fpu) ? i0_dp.fp_msub :  i1_dp.fp_msub;
-   assign fpu_p.nmsub =  (i0_dp.fpu) ? i0_dp.fp_nmsub : i1_dp.fp_nmsub;
-   assign fpu_p.nmadd =  (i0_dp.fpu) ? i0_dp.fp_nmadd : i1_dp.fp_nmadd;
-   assign fpu_p.add =    (i0_dp.fpu) ? i0_dp.fp_add :   i1_dp.fp_add;
-   assign fpu_p.sub =    (i0_dp.fpu) ? i0_dp.fp_sub :   i1_dp.fp_sub;
-   assign fpu_p.mul =    (i0_dp.fpu) ? i0_dp.fp_mul :   i1_dp.fp_mul;
-   assign fpu_p.div =    (i0_dp.fpu) ? i0_dp.fp_div :   i1_dp.fp_div;
-   assign fpu_p.sqrt =   (i0_dp.fpu) ? i0_dp.fp_sqrt :  i1_dp.fp_sqrt;
-   assign fpu_p.sgnj =   (i0_dp.fpu) ? i0_dp.fp_sgnj :  i1_dp.fp_sgnj;
-   assign fpu_p.sgnjn =  (i0_dp.fpu) ? i0_dp.fp_sgnjn : i1_dp.fp_sgnjn;
-   assign fpu_p.sgnjx =  (i0_dp.fpu) ? i0_dp.fp_sgnjx : i1_dp.fp_sgnjx;
-   assign fpu_p.min =    (i0_dp.fpu) ? i0_dp.fp_min :   i1_dp.fp_min;
-   assign fpu_p.max =    (i0_dp.fpu) ? i0_dp.fp_max :   i1_dp.fp_max;
-   assign fpu_p.cvt =    (i0_dp.fpu) ? i0_dp.fp_cvt :   i1_dp.fp_cvt;
-   assign fpu_p.mv =     (i0_dp.fpu) ? i0_dp.fp_mv :    i1_dp.fp_mv;
-   assign fpu_p.eq =     (i0_dp.fpu) ? i0_dp.fp_eq :    i1_dp.fp_eq;
-   assign fpu_p.lt =     (i0_dp.fpu) ? i0_dp.fp_lt :    i1_dp.fp_lt;
-   assign fpu_p.le =     (i0_dp.fpu) ? i0_dp.fp_le :    i1_dp.fp_le;
-   assign fpu_p.class_ = (i0_dp.fpu) ? i0_dp.fp_class : i1_dp.fp_class;
-   assign fpu_p.rm =     (i0_dp.fpu) ? i0[14:12] : i1[14:12];
+   assign fpu_p.madd =         (i0_dp.fpu) ? i0_dp.fp_madd :    i1_dp.fp_madd;
+   assign fpu_p.msub =         (i0_dp.fpu) ? i0_dp.fp_msub :    i1_dp.fp_msub;
+   assign fpu_p.nmsub =        (i0_dp.fpu) ? i0_dp.fp_nmsub :   i1_dp.fp_nmsub;
+   assign fpu_p.nmadd =        (i0_dp.fpu) ? i0_dp.fp_nmadd :   i1_dp.fp_nmadd;
+   assign fpu_p.add =          (i0_dp.fpu) ? i0_dp.fp_add :     i1_dp.fp_add;
+   assign fpu_p.sub =          (i0_dp.fpu) ? i0_dp.fp_sub :     i1_dp.fp_sub;
+   assign fpu_p.mul =          (i0_dp.fpu) ? i0_dp.fp_mul :     i1_dp.fp_mul;
+   assign fpu_p.div =          (i0_dp.fpu) ? i0_dp.fp_div :     i1_dp.fp_div;
+   assign fpu_p.sqrt =         (i0_dp.fpu) ? i0_dp.fp_sqrt :    i1_dp.fp_sqrt;
+   assign fpu_p.sgnj =         (i0_dp.fpu) ? i0_dp.fp_sgnj :    i1_dp.fp_sgnj;
+   assign fpu_p.sgnjn =        (i0_dp.fpu) ? i0_dp.fp_sgnjn :   i1_dp.fp_sgnjn;
+   assign fpu_p.sgnjx =        (i0_dp.fpu) ? i0_dp.fp_sgnjx :   i1_dp.fp_sgnjx;
+   assign fpu_p.min =          (i0_dp.fpu) ? i0_dp.fp_min :     i1_dp.fp_min;
+   assign fpu_p.max =          (i0_dp.fpu) ? i0_dp.fp_max :     i1_dp.fp_max;
+   assign fpu_p.cvt_f2i =      (i0_dp.fpu) ? i0_dp.fp_cvt_f2i : i1_dp.fp_cvt_f2i;
+   assign fpu_p.cvt_i2f =      (i0_dp.fpu) ? i0_dp.fp_cvt_i2f : i1_dp.fp_cvt_i2f;
+   assign fpu_p.cvt_unsigned = (i0_dp.fpu) ? i0_dp.unsign :     i1_dp.unsign;
+   assign fpu_p.mv_x_w =       (i0_dp.fpu) ? (i0_dp.fp_mv & i0_dp.rd) : (i1_dp.fp_mv & i1_dp.rd);
+   assign fpu_p.mv_w_x =       (i0_dp.fpu) ? (i0_dp.fp_mv & i0_dp.fp_rd) : (i1_dp.fp_mv & i1_dp.fp_rd);
+   assign fpu_p.eq =           (i0_dp.fpu) ? i0_dp.fp_eq :      i1_dp.fp_eq;
+   assign fpu_p.lt =           (i0_dp.fpu) ? i0_dp.fp_lt :      i1_dp.fp_lt;
+   assign fpu_p.le =           (i0_dp.fpu) ? i0_dp.fp_le :      i1_dp.fp_le;
+   assign fpu_p.classify =     (i0_dp.fpu) ? i0_dp.fp_class :   i1_dp.fp_class;
+   assign fpu_p.rm =           (i0_dp.fpu) ? i0[14:12] : i1[14:12];
 
 
    // defined register packet
-
+   // TODO(FPU): extend register address by 1 bit to indicate if it is FP or integer register
    assign i0r.rs1[4:0] = i0[19:15];
    assign i0r.rs2[4:0] = i0[24:20];
    assign i0r.rs3[4:0] = i0[31:27];
@@ -1226,10 +1230,10 @@ end : cam_array
    assign i0_rd_d[4:0] = i0r.rd[4:0];
 
 
-   assign dec_i0_fp_rs1_en_d = i0_dp.fpu & i0_dp.rs1;
-   assign dec_i0_fp_rs2_en_d = (i0_dp.fpu | i0_dp.fp_lsu) & i0_dp.rs2;
-   assign dec_i0_fp_rs3_en_d = i0_dp.fpu & i0_dp.rs3;
-   assign i0_fp_rd_en_d = i0_dp.fpu & i0_dp.rd;
+   assign dec_i0_fp_rs1_en_d = i0_dp.fp_rs1;
+   assign dec_i0_fp_rs2_en_d = i0_dp.fp_rs2;
+   assign dec_i0_fp_rs3_en_d = i0_dp.fp_rs3;
+   assign i0_fp_rd_en_d = i0_dp.fp_rd;
 
    assign dec_i0_fp_rs1_d[4:0] = i0r.rs1[4:0];
    assign dec_i0_fp_rs2_d[4:0] = i0r.rs2[4:0];
@@ -1256,10 +1260,6 @@ end : cam_array
    assign i0_csr_write_only_d = i0_csr_write & ~i0_dp.csr_read;
 
    assign dec_csr_wen_unq_d = (i0_dp.csr_clr | i0_dp.csr_set | i0_csr_write);   // for csr legal, can't write read-only csr
-   //always begin
-    //if (dec_csr_wen_unq_d) $display("[%X] dec_csr_wen_unq_d=%0d", dec_i0_pc_wb1, dec_csr_wen_unq_d);
-   //end
-                               // TODO(FPU): allow writing to FFLAGS/FRM | i0_dp.csr_fflags | i0_dp.csr_frm
 
    assign dec_csr_any_unq_d = any_csr_d;
 
@@ -1366,10 +1366,10 @@ end : cam_array
    assign i1_rd_d[4:0] = i1r.rd[4:0];
 
 
-   assign dec_i1_fp_rs1_en_d = i1_dp.fpu & i1_dp.rs1;
-   assign dec_i1_fp_rs2_en_d = (i1_dp.fpu | i1_dp.fp_lsu) & i1_dp.rs2;
-   assign dec_i1_fp_rs3_en_d = i1_dp.fpu & i1_dp.rs3;
-   assign i1_fp_rd_en_d = i1_dp.fpu & i1_dp.rd;
+   assign dec_i1_fp_rs1_en_d = i1_dp.fp_rs1;
+   assign dec_i1_fp_rs2_en_d = i1_dp.fp_rs2;
+   assign dec_i1_fp_rs3_en_d = i1_dp.fp_rs3;
+   assign i1_fp_rd_en_d = i1_dp.fp_rd;
 
    assign dec_i1_fp_rs1_d[4:0] = i1r.rs1[4:0];
    assign dec_i1_fp_rs2_d[4:0] = i1r.rs2[4:0];
@@ -1404,8 +1404,8 @@ end : cam_array
    assign i0_store_stall_d =  i0_dp.store & (lsu_store_stall_any | dma_dccm_stall_any);
    assign i1_store_stall_d =  i1_dp.store & (lsu_store_stall_any | dma_dccm_stall_any);
 
-   assign i1_depend_i0_d = (dec_i1_rs1_en_d & i0_dp.rd & (i1r.rs1[4:0] == i0r.rd[4:0])) |
-                           (dec_i1_rs2_en_d & i0_dp.rd & (i1r.rs2[4:0] == i0r.rd[4:0]));
+   assign i1_depend_i0_d = ((dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs1[4:0] == i0r.rd[4:0])) |
+                           ((dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs2[4:0] == i0r.rd[4:0]));
 
 
 
@@ -1613,29 +1613,29 @@ end : cam_array
 
 
 
-   assign i0_rs1_depend_i0_e1 = dec_i0_rs1_en_d & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_e2 = dec_i0_rs1_en_d & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_e3 = dec_i0_rs1_en_d & e3d.i0v & (e3d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_e4 = dec_i0_rs1_en_d & e4d.i0v & (e4d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_wb = dec_i0_rs1_en_d & wbd.i0v & (wbd.i0rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i0_e1 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i0_e2 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i0_e3 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i0_e4 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i0_wb = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i0r.rs1[4:0]);
 
-   assign i0_rs1_depend_i1_e1 = dec_i0_rs1_en_d & e1d.i1v & (e1d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_e2 = dec_i0_rs1_en_d & e2d.i1v & (e2d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_e3 = dec_i0_rs1_en_d & e3d.i1v & (e3d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_e4 = dec_i0_rs1_en_d & e4d.i1v & (e4d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_wb = dec_i0_rs1_en_d & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i1_e1 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i1_e2 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i1_e3 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i1_e4 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i1_wb = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs1[4:0]);
 
-   assign i0_rs2_depend_i0_e1 = dec_i0_rs2_en_d & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_e2 = dec_i0_rs2_en_d & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_e3 = dec_i0_rs2_en_d & e3d.i0v & (e3d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_e4 = dec_i0_rs2_en_d & e4d.i0v & (e4d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_wb = dec_i0_rs2_en_d & wbd.i0v & (wbd.i0rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i0_e1 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i0_e2 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i0_e3 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i0_e4 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i0_wb = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i0r.rs2[4:0]);
 
-   assign i0_rs2_depend_i1_e1 = dec_i0_rs2_en_d & e1d.i1v & (e1d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_e2 = dec_i0_rs2_en_d & e2d.i1v & (e2d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_e3 = dec_i0_rs2_en_d & e3d.i1v & (e3d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_e4 = dec_i0_rs2_en_d & e4d.i1v & (e4d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_wb = dec_i0_rs2_en_d & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i1_e1 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i1_e2 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i1_e3 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i1_e4 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i1_wb = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs2[4:0]);
 
    assign i0_rs3_depend_i0_e1 = dec_i0_fp_rs3_en_d & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs3[4:0]);
    assign i0_rs3_depend_i0_e2 = dec_i0_fp_rs3_en_d & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs3[4:0]);
@@ -1650,29 +1650,29 @@ end : cam_array
    assign i0_rs3_depend_i1_wb = dec_i0_fp_rs3_en_d & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs3[4:0]);
 
 
-   assign i1_rs1_depend_i0_e1 = dec_i1_rs1_en_d & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_e2 = dec_i1_rs1_en_d & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_e3 = dec_i1_rs1_en_d & e3d.i0v & (e3d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_e4 = dec_i1_rs1_en_d & e4d.i0v & (e4d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_wb = dec_i1_rs1_en_d & wbd.i0v & (wbd.i0rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i0_e1 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i0_e2 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i0_e3 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i0_e4 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i0_wb = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i1r.rs1[4:0]);
 
-   assign i1_rs1_depend_i1_e1 = dec_i1_rs1_en_d & e1d.i1v & (e1d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_e2 = dec_i1_rs1_en_d & e2d.i1v & (e2d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_e3 = dec_i1_rs1_en_d & e3d.i1v & (e3d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_e4 = dec_i1_rs1_en_d & e4d.i1v & (e4d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_wb = dec_i1_rs1_en_d & wbd.i1v & (wbd.i1rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i1_e1 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i1_e2 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i1_e3 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i1_e4 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i1_wb = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i1r.rs1[4:0]);
 
-   assign i1_rs2_depend_i0_e1 = dec_i1_rs2_en_d & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_e2 = dec_i1_rs2_en_d & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_e3 = dec_i1_rs2_en_d & e3d.i0v & (e3d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_e4 = dec_i1_rs2_en_d & e4d.i0v & (e4d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_wb = dec_i1_rs2_en_d & wbd.i0v & (wbd.i0rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i0_e1 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i0_e2 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i0_e3 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i0_e4 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i0_wb = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i1r.rs2[4:0]);
 
-   assign i1_rs2_depend_i1_e1 = dec_i1_rs2_en_d & e1d.i1v & (e1d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_e2 = dec_i1_rs2_en_d & e2d.i1v & (e2d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_e3 = dec_i1_rs2_en_d & e3d.i1v & (e3d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_e4 = dec_i1_rs2_en_d & e4d.i1v & (e4d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_wb = dec_i1_rs2_en_d & wbd.i1v & (wbd.i1rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i1_e1 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i1_e2 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i1_e3 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i1_e4 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i1_wb = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i1r.rs2[4:0]);
 
    assign i1_rs3_depend_i0_e1 = dec_i1_fp_rs3_en_d & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs3[4:0]);
    assign i1_rs3_depend_i0_e2 = dec_i1_fp_rs3_en_d & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs3[4:0]);
@@ -1763,9 +1763,9 @@ end : cam_array
 // define bypasses for e3 stage before secondary alu's
 
 
-   assign i1_rs1_depend_i0_d = dec_i1_rs1_en_d & i0_dp.rd & (i1r.rs1[4:0] == i0r.rd[4:0]);
-   assign i1_rs2_depend_i0_d = dec_i1_rs2_en_d & i0_dp.rd & (i1r.rs2[4:0] == i0r.rd[4:0]);
-   assign i1_rs3_depend_i0_d = dec_i1_fp_rs3_en_d & i0_dp.rd & (i1r.rs3[4:0] == i0r.rd[4:0]);
+   assign i1_rs1_depend_i0_d = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs1[4:0] == i0r.rd[4:0]);
+   assign i1_rs2_depend_i0_d = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs2[4:0] == i0r.rd[4:0]);
+   assign i1_rs3_depend_i0_d = dec_i1_fp_rs3_en_d                     & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs3[4:0] == i0r.rd[4:0]);
 
 
 // i0
@@ -2264,7 +2264,8 @@ end : cam_array
 
 
    assign dd.i0rd[4:0] = i0r.rd[4:0];
-   assign dd.i0v = i0_rd_en_d & i0_legal_decode_d;
+   assign dd.i0v = (i0_rd_en_d | i0_fp_rd_en_d) & i0_legal_decode_d;
+   assign dd.i0vfp = i0_fp_rd_en_d;
    assign dd.i0valid =              dec_i0_decode_d;  // has flush_final_e3
 
    assign dd.i0mul = i0_dp.mul & i0_legal_decode_d;
@@ -2391,15 +2392,13 @@ end : cam_array
 
    always_comb begin
 
-      if (exu_div_finish | exu_fpu_finish)    // wipe data for exu_div_finish - bug where csr_wen was set for fast divide
+      if (exu_div_finish)    // wipe data for exu_div_finish - bug where csr_wen was set for fast divide
         e4d_in = '0;
       else
         e4d_in = e4d;
 
 
       e4d_in.i0rd[4:0] = (exu_div_finish) ? div_waddr_wb[4:0] : (exu_fpu_finish) ? fpu_waddr_wb[4:0] : e4d.i0rd[4:0];
-      //e4d_in.i0fpu = exu_fpu_finish; // used to wb to fp register file // TODO(FPU): is this correct????
-      // TODO(FPU): can we use fpu_wen_wb instead?
 
       e4d_in.i0v = (e4d.i0v         & ~(e4d.i0div | e4d.i0fpu) & ~flush_lower_wb) | (exu_div_finish & div_waddr_wb[4:0]!=5'b0) | exu_fpu_finish;
       e4d_in.i0valid = (e4d.i0valid                            & ~flush_lower_wb) | exu_div_finish | exu_fpu_finish;
@@ -2420,10 +2419,9 @@ end : cam_array
    assign dec_i0_waddr_wb[4:0] = wbd.i0rd[4:0];
 
    // squash same write, take last write assuming we don't kill the I1 write for some reason.
-   assign     i0_wen_wb = wbd.i0v & ~(~dec_tlu_i1_kill_writeb_wb & ~i1_load_kill_wen & wbd.i0v & wbd.i1v & (wbd.i0rd[4:0] == wbd.i1rd[4:0])) & ~dec_tlu_i0_kill_writeb_wb;
-   assign dec_i0_wen_wb = i0_wen_wb & ~i0_load_kill_wen;  // don't write a nonblock load 1st time down the pipe
-   assign dec_i0_fp_wen_wb = dec_i0_wen_wb & fpu_wen_wb;
-   // TODO(FPU): here somehow send a signal back when it should write to fp register file
+   assign        i0_wen_wb = wbd.i0v & ~(~dec_tlu_i1_kill_writeb_wb & ~i1_load_kill_wen & wbd.i0v & wbd.i1v & (wbd.i0rd[4:0] == wbd.i1rd[4:0])) & ~dec_tlu_i0_kill_writeb_wb;
+   assign    dec_i0_wen_wb = i0_wen_wb & ~wbd.i0vfp & ~i0_load_kill_wen;  // don't write a nonblock load 1st time down the pipe
+   assign dec_i0_fp_wen_wb = i0_wen_wb &  wbd.i0vfp & ~i0_load_kill_wen;
 
    assign dec_i0_wdata_wb[31:0] = i0_result_wb[31:0];
 
@@ -2731,23 +2729,20 @@ module dec_dec_ctl
 assign out.alu = (!i[6]&i[3]) | (!i[25]&i[5]&i[4]) | (!i[6]&!i[5]&i[4]) | (i[6]&i[5]) | (
     i[4]&i[2]);
 
-assign out.rs1 = (!i[14]&!i[13]&!i[2]) | (!i[13]&i[11]&!i[2]) | (i[19]&i[13]&!i[2]) | (
-    !i[13]&i[10]&!i[2]) | (i[18]&i[13]&!i[2]) | (!i[13]&i[9]&!i[2]) | (
-    i[17]&i[13]&!i[2]) | (!i[13]&i[8]&!i[2]) | (i[16]&i[13]&!i[2]) | (
-    !i[13]&i[7]&!i[2]) | (i[15]&i[13]&!i[2]) | (!i[4]&!i[3]) | (!i[6]
-    &!i[2]) | (i[6]&!i[5]);
+assign out.rs1 = (i[31]&i[28]&!i[5]&i[4]&!i[2]) | (!i[14]&!i[13]&i[5]&!i[2]) | (
+    !i[13]&i[11]&i[5]&!i[2]) | (i[19]&i[13]&i[5]&!i[2]) | (!i[6]&!i[4]
+    &!i[3]) | (!i[13]&i[10]&i[5]&!i[2]) | (i[18]&i[13]&i[5]&!i[2]) | (
+    !i[13]&i[9]&i[5]&!i[2]) | (i[17]&i[13]&i[5]&!i[2]) | (!i[13]&i[8]
+    &i[5]&!i[2]) | (i[16]&i[13]&i[5]&!i[2]) | (!i[13]&i[7]&i[5]&!i[2]) | (
+    i[15]&i[13]&i[5]&!i[2]) | (i[5]&!i[4]&!i[3]) | (!i[6]&!i[2]);
 
-assign out.rs2 = (!i[6]&i[5]&!i[4]) | (i[6]&!i[5]&!i[4]) | (i[5]&!i[4]&!i[2]) | (
-    !i[30]&i[6]&!i[5]) | (!i[6]&i[5]&!i[2]);
-
-assign out.rs3 = (i[6]&!i[5]&!i[4]);
+assign out.rs2 = (!i[6]&i[5]&!i[2]) | (i[5]&!i[4]&!i[2]);
 
 assign out.imm12 = (i[6]&i[5]&!i[3]&i[2]) | (i[13]&!i[6]&!i[5]&i[4]&!i[2]) | (!i[13]
     &!i[12]&i[6]&i[5]&i[4]) | (!i[12]&!i[6]&!i[5]&i[4]&!i[2]);
 
-assign out.rm = (!i[29]&i[6]&!i[5]) | (i[6]&!i[5]&!i[4]);
-
-assign out.rd = (!i[5]&!i[2]) | (i[6]&i[2]) | (!i[5]&!i[3]) | (i[4]);
+assign out.rd = (i[31]&!i[28]&i[4]) | (i[4]&i[2]) | (i[6]&i[5]&i[2]) | (i[5]&i[4]) | (
+    !i[6]&!i[5]&!i[2]);
 
 assign out.shimm5 = (!i[13]&i[12]&!i[6]&!i[5]&i[4]&!i[2]);
 
@@ -2789,9 +2784,10 @@ assign out.srl = (!i[30]&!i[25]&i[14]&!i[13]&i[12]&!i[6]&i[4]&!i[2]);
 assign out.slt = (!i[14]&i[13]&!i[6]&!i[5]&i[4]&!i[2]) | (!i[25]&!i[14]&i[13]&!i[6]
     &i[4]&!i[2]);
 
-assign out.unsign = (i[25]&!i[14]&i[12]&!i[5]&i[4]&!i[2]) | (i[13]&i[6]&i[5]&!i[4]
-    &!i[2]) | (!i[25]&!i[14]&i[13]&i[12]&!i[6]&!i[2]) | (i[25]&i[14]
-    &i[12]&!i[6]&i[5]&!i[2]) | (i[14]&!i[6]&!i[4]);
+assign out.unsign = (i[30]&i[20]&i[6]&!i[5]&i[4]) | (i[25]&!i[14]&i[12]&!i[5]&i[4]
+    &!i[2]) | (i[13]&i[6]&i[5]&!i[4]&!i[2]) | (!i[25]&!i[14]&i[13]&i[12]
+    &!i[6]&!i[2]) | (i[25]&i[14]&i[12]&!i[6]&i[5]&!i[2]) | (i[14]&!i[6]
+    &!i[4]);
 
 assign out.condbr = (i[6]&i[5]&!i[4]&!i[2]);
 
@@ -2872,6 +2868,15 @@ assign out.fpu = (i[6]&!i[5]);
 
 assign out.fp_lsu = (!i[6]&!i[4]&!i[3]&i[2]);
 
+assign out.fp_rs1 = (!i[31]&i[6]&!i[5]) | (!i[28]&i[6]&!i[5]) | (i[6]&!i[5]&!i[4]);
+
+assign out.fp_rs2 = (!i[6]&i[5]&!i[4]&i[2]) | (!i[30]&i[6]&!i[5]) | (i[6]&!i[5]&!i[4]);
+
+assign out.fp_rs3 = (i[6]&!i[5]&!i[4]);
+
+assign out.fp_rd = (!i[5]&!i[4]&!i[3]&i[2]) | (i[28]&i[6]&!i[5]) | (!i[31]&i[6]&!i[5]) | (
+    i[6]&!i[5]&!i[4]);
+
 assign out.fp_madd = (i[6]&!i[5]&!i[4]&!i[3]&!i[2]);
 
 assign out.fp_msub = (i[6]&!i[5]&!i[3]&i[2]);
@@ -2900,7 +2905,9 @@ assign out.fp_min = (i[29]&i[27]&!i[12]&i[6]&!i[5]&i[4]);
 
 assign out.fp_max = (i[29]&i[27]&i[12]&i[6]&!i[5]&i[4]);
 
-assign out.fp_cvt = (i[31]&!i[29]&i[6]&!i[5]&i[4]);
+assign out.fp_cvt_f2i = (i[30]&!i[29]&!i[28]&i[6]&!i[5]&i[4]);
+
+assign out.fp_cvt_i2f = (i[31]&!i[29]&i[28]&i[6]&!i[5]&i[4]);
 
 assign out.fp_mv = (i[30]&i[29]&!i[12]&i[6]&!i[5]&i[4]);
 

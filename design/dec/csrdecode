@@ -250,8 +250,8 @@ csr[ csr_perfvg    ] = { valid_only }
 csr[ csr_perfvh    ] = { valid_only }
 csr[ csr_perfvi    ] = { valid_only }
 
-csr[ csr_fflags    ] = { csr_fflags postsync }
-csr[ csr_frm       ] = { csr_frm    postsync }
-csr[ csr_fcsr      ] = { csr_fcsr   postsync }
+csr[ csr_fflags    ] = { csr_fflags presync postsync }
+csr[ csr_frm       ] = { csr_frm    presync postsync }
+csr[ csr_fcsr      ] = { csr_fcsr   presync postsync }
 
 .end
