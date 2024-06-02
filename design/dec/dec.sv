@@ -536,7 +536,7 @@ module dec
 
    logic                      dec_nonblock_load_wen;
    logic                      dec_nonblock_load_fp_wen;
-   logic [4:0]                dec_nonblock_load_waddr;
+   logic [5:0]                dec_nonblock_load_waddr;
    logic                      dec_tlu_flush_pause_wb;
 
    logic                      dec_i0_load_e4;

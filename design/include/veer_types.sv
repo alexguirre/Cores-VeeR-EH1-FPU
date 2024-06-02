@@ -56,7 +56,7 @@ typedef struct packed {
                        logic valid;
                        logic wb;
                        logic [`RV_LSU_NUM_NBLOAD_WIDTH-1:0] tag;
-                       logic [4:0] rd;
+                       logic [5:0] rd;
                        } load_cam_pkt_t;
 
 typedef struct packed {
@@ -145,21 +145,20 @@ typedef struct packed {
                        } trap_pkt_t;
 
 typedef struct packed {
-                       logic [4:0] i0rd;
+                       logic [5:0] i0rd; // [5] = FP register, [4:0] = register address
                        logic i0mul;
                        logic i0load;
                        logic i0store;
                        logic i0div;
                        logic i0fpu;
                        logic i0v;
-                       logic i0vfp; // write-back to FP register
                        logic i0valid;
                        logic i0secondary;
                        logic [1:0] i0rs1bype2;
                        logic [1:0] i0rs2bype2;
                        logic [3:0] i0rs1bype3;
                        logic [3:0] i0rs2bype3;
-                       logic [4:0] i1rd;
+                       logic [5:0] i1rd;
                        logic i1mul;
                        logic i1load;
                        logic i1store;
@@ -183,10 +182,11 @@ typedef struct packed {
                        } class_pkt_t;
 
 typedef struct packed {
-                       logic [4:0] rs1;
-                       logic [4:0] rs2;
-                       logic [4:0] rs3;
-                       logic [4:0] rd;
+                       // [5] = FP register, [4:0] = register address
+                       logic [5:0] rs1;
+                       logic [5:0] rs2;
+                       logic [5:0] rs3;
+                       logic [5:0] rd;
                        } reg_pkt_t;
 
 

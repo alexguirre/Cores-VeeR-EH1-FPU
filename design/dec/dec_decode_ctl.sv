@@ -298,7 +298,7 @@ module dec_decode_ctl
 
    output logic       dec_nonblock_load_wen,        // write enable for nonblock load
    output logic       dec_nonblock_load_fp_wen,     // write enable for nonblock load to fp registers
-   output logic [4:0] dec_nonblock_load_waddr,      // logical write addr for nonblock load
+   output logic [5:0] dec_nonblock_load_waddr,      // logical write addr for nonblock load
    output logic       dec_nonblock_load_freeze_dc2, // lsu must freeze nonblock load due to younger dependency in pipe
    output logic       dec_pause_state,              // core in pause state
    output logic       dec_pause_state_cg,           // pause state for clock-gating
@@ -574,7 +574,7 @@ module dec_decode_ctl
    load_cam_pkt_t [NBLOAD_SIZE_MSB:0] cam;
    load_cam_pkt_t [NBLOAD_SIZE_MSB:0] cam_in;
 
-   logic [4:0] nonblock_load_rd;
+   logic [5:0] nonblock_load_rd;
    logic i1_nonblock_load_stall,     i0_nonblock_load_stall;
    logic i1_nonblock_boundary_stall, i0_nonblock_boundary_stall;
    logic i0_depend_load_e1_d, i0_depend_load_e2_d;
@@ -606,7 +606,7 @@ module dec_decode_ctl
    logic       e4d_i0load;
 
    logic [4:0] div_waddr_wb;
-   logic [4:0] fpu_waddr_wb;
+   logic [5:0] fpu_waddr_wb;
    logic [12:1] last_br_immed_e1, last_br_immed_e2;
    logic [31:0]        i0_inst_d, i1_inst_d;
    logic [31:0]        i0_inst_e1, i1_inst_e1;
@@ -831,7 +831,7 @@ module dec_decode_ctl
    end
 
 
-   assign cam_reset_same_dest_wb = wbd.i0v & wbd.i1v & (wbd.i0rd[4:0] == wbd.i1rd[4:0]) &
+   assign cam_reset_same_dest_wb = wbd.i0v & wbd.i1v & (wbd.i0rd[5:0] == wbd.i1rd[5:0]) &
                                    wbd.i0load & nonblock_load_valid_wb & ~dec_tlu_i0_kill_writeb_wb & ~dec_tlu_i1_kill_writeb_wb;
 
 
@@ -844,7 +844,7 @@ module dec_decode_ctl
    assign cam_data_reset          = lsu_nonblock_load_data_valid | lsu_nonblock_load_data_error;
    assign cam_data_reset_tag[NBLOAD_TAG_MSB:0] = lsu_nonblock_load_data_tag[NBLOAD_TAG_MSB:0];
 
-   assign nonblock_load_rd[4:0] = (e3d.i0load) ? e3d.i0rd[4:0] : e3d.i1rd[4:0];  // rd data
+   assign nonblock_load_rd[5:0] = (e3d.i0load) ? e3d.i0rd[5:0] : e3d.i1rd[5:0];  // rd data
 
 
    // checks
@@ -872,12 +872,12 @@ module dec_decode_ctl
             cam_in[i].valid    = 1'b1;
             cam_in[i].wb       = 1'b0;
             cam_in[i].tag[NBLOAD_TAG_MSB:0] = cam_write_tag[NBLOAD_TAG_MSB:0];
-            cam_in[i].rd[4:0]  = nonblock_load_rd[4:0];
+            cam_in[i].rd[5:0]  = nonblock_load_rd[5:0];
          end
          else if ( (cam_inv_reset_val[i]) |
                    (cam_data_reset_val[i]) |
-                   (i0_wen_wb & (wbd.i0rd[4:0] == cam[i].rd[4:0]) & cam[i].wb) |
-                   (i1_wen_wb & (wbd.i1rd[4:0] == cam[i].rd[4:0]) & cam[i].wb) )
+                   (i0_wen_wb & (wbd.i0rd[5:0] == cam[i].rd[5:0]) & cam[i].wb) |
+                   (i1_wen_wb & (wbd.i1rd[5:0] == cam[i].rd[5:0]) & cam[i].wb) )
            cam_in[i].valid = 1'b0;
          else
            cam_in[i] = cam[i];
@@ -887,15 +887,14 @@ module dec_decode_ctl
            cam_in[i].wb = 1'b1;
       end
 
-   rvdff #( $bits(load_cam_pkt_t) ) cam_ff (.*, .clk(free_clk), .din(cam_in[i]), .dout(cam[i]));
+      rvdff #( $bits(load_cam_pkt_t) ) cam_ff (.*, .clk(free_clk), .din(cam_in[i]), .dout(cam[i]));
 
 
+ 
+      assign nonblock_load_write[i] = (load_data_tag[NBLOAD_TAG_MSB:0] == cam[i].tag[NBLOAD_TAG_MSB:0]) & cam[i].valid;
 
-   assign nonblock_load_write[i] = (load_data_tag[NBLOAD_TAG_MSB:0] == cam[i].tag[NBLOAD_TAG_MSB:0]) & cam[i].valid;
 
-
-
-end : cam_array
+   end : cam_array
 
 
 
@@ -906,40 +905,38 @@ end : cam_array
 `endif
 
 
-   assign nonblock_load_cancel = ((wbd.i0rd[4:0] == dec_nonblock_load_waddr[4:0]) & i0_wen_wb) |    // cancel if any younger inst (including another nonblock) committing this cycle
-                                 ((wbd.i1rd[4:0] == dec_nonblock_load_waddr[4:0]) & i1_wen_wb);
+   assign nonblock_load_cancel = ((wbd.i0rd[5:0] == dec_nonblock_load_waddr[5:0]) & i0_wen_wb) |    // cancel if any younger inst (including another nonblock) committing this cycle
+                                 ((wbd.i1rd[5:0] == dec_nonblock_load_waddr[5:0]) & i1_wen_wb);
 
 
    assign dec_nonblock_load_wen = lsu_nonblock_load_data_valid & |nonblock_load_write[NBLOAD_SIZE_MSB:0] & ~nonblock_load_cancel & ~lsu_nonblock_fp;
    assign dec_nonblock_load_fp_wen = lsu_nonblock_load_data_valid & |nonblock_load_write[NBLOAD_SIZE_MSB:0] & ~nonblock_load_cancel & lsu_nonblock_fp;
 
    always_comb begin
-      dec_nonblock_load_waddr[4:0] = '0;
+      dec_nonblock_load_waddr[5:0] = '0;
       i0_nonblock_load_stall = i0_nonblock_boundary_stall;
       i1_nonblock_load_stall = i1_nonblock_boundary_stall;
 
       for (int i=0; i<NBLOAD_SIZE; i++) begin
-         dec_nonblock_load_waddr[4:0] |= ({5{nonblock_load_write[i]}} & cam[i].rd[4:0]);
+         dec_nonblock_load_waddr[5:0] |= ({5{nonblock_load_write[i]}} & cam[i].rd[5:0]);
 
-         // TODO(FPU): extend register address by 1 bit to indicate if it is FP or integer register
-         i0_nonblock_load_stall |= (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & cam[i].valid & (cam[i].rd[4:0] == i0r.rs1[4:0]);
-         i0_nonblock_load_stall |= (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & cam[i].valid & (cam[i].rd[4:0] == i0r.rs2[4:0]);
-         i0_nonblock_load_stall |= dec_i0_fp_rs3_en_d                     & cam[i].valid & (cam[i].rd[4:0] == i0r.rs3[4:0]);
+         i0_nonblock_load_stall |= (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & cam[i].valid & (cam[i].rd[5:0] == i0r.rs1[5:0]);
+         i0_nonblock_load_stall |= (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & cam[i].valid & (cam[i].rd[5:0] == i0r.rs2[5:0]);
+         i0_nonblock_load_stall |= dec_i0_fp_rs3_en_d                     & cam[i].valid & (cam[i].rd[5:0] == i0r.rs3[5:0]);
 
-         i1_nonblock_load_stall |= (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & cam[i].valid & (cam[i].rd[4:0] == i1r.rs1[4:0]);
-         i1_nonblock_load_stall |= (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & cam[i].valid & (cam[i].rd[4:0] == i1r.rs2[4:0]);
-         i1_nonblock_load_stall |= dec_i1_fp_rs3_en_d                     & cam[i].valid & (cam[i].rd[4:0] == i1r.rs3[4:0]);
+         i1_nonblock_load_stall |= (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & cam[i].valid & (cam[i].rd[5:0] == i1r.rs1[5:0]);
+         i1_nonblock_load_stall |= (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & cam[i].valid & (cam[i].rd[5:0] == i1r.rs2[5:0]);
+         i1_nonblock_load_stall |= dec_i1_fp_rs3_en_d                     & cam[i].valid & (cam[i].rd[5:0] == i1r.rs3[5:0]);
       end
    end
 
-   // TODO(FPU): extend register address by 1 bit to indicate if it is FP or integer register
-   assign i0_nonblock_boundary_stall = ((nonblock_load_rd[4:0]==i0r.rs1[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d)) |
-                                       ((nonblock_load_rd[4:0]==i0r.rs2[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d)) |
-                                       ((nonblock_load_rd[4:0]==i0r.rs3[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i0_fp_rs3_en_d);
+   assign i0_nonblock_boundary_stall = ((nonblock_load_rd[5:0]==i0r.rs1[5:0]) & lsu_nonblock_load_valid_dc3 & (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d)) |
+                                       ((nonblock_load_rd[5:0]==i0r.rs2[5:0]) & lsu_nonblock_load_valid_dc3 & (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d)) |
+                                       ((nonblock_load_rd[5:0]==i0r.rs3[5:0]) & lsu_nonblock_load_valid_dc3 & dec_i0_fp_rs3_en_d);
 
-   assign i1_nonblock_boundary_stall = ((nonblock_load_rd[4:0]==i1r.rs1[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d)) |
-                                       ((nonblock_load_rd[4:0]==i1r.rs2[4:0]) & lsu_nonblock_load_valid_dc3 & (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d)) |
-                                       ((nonblock_load_rd[4:0]==i1r.rs3[4:0]) & lsu_nonblock_load_valid_dc3 & dec_i1_fp_rs3_en_d);
+   assign i1_nonblock_boundary_stall = ((nonblock_load_rd[5:0]==i1r.rs1[5:0]) & lsu_nonblock_load_valid_dc3 & (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d)) |
+                                       ((nonblock_load_rd[5:0]==i1r.rs2[5:0]) & lsu_nonblock_load_valid_dc3 & (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d)) |
+                                       ((nonblock_load_rd[5:0]==i1r.rs3[5:0]) & lsu_nonblock_load_valid_dc3 & dec_i1_fp_rs3_en_d);
 
    assign i0_depend_load_e1_d = ((i0_rs1_class_d.load & (i0_rs1_depth_d[3:0]==4'd1 | i0_rs1_depth_d[3:0]==4'd2)) |
                                  (i0_rs2_class_d.load & (i0_rs2_depth_d[3:0]==4'd1 | i0_rs2_depth_d[3:0]==4'd2)) |
@@ -1074,15 +1071,15 @@ end : cam_array
 
    assign i0_pcall_12b_offset = (i0_pcall_imm[12]) ? (i0_pcall_imm[20:13] == 8'hff) : (i0_pcall_imm[20:13] == 8'h0);
 
-   assign i0_pcall_case  = i0_pcall_12b_offset & i0_dp_raw.imm20 & i0r.rd[4:0]!=5'b0;
-   assign i0_pja_case    = i0_pcall_12b_offset & i0_dp_raw.imm20 & i0r.rd[4:0]==5'b0;
+   assign i0_pcall_case  = i0_pcall_12b_offset & i0_dp_raw.imm20 & i0r.rd[5:0]!=6'b0;
+   assign i0_pja_case    = i0_pcall_12b_offset & i0_dp_raw.imm20 & i0r.rd[5:0]==6'b0;
 
    assign i1_pcall_imm[20:1] = {i1[31],i1[19:12],i1[20],i1[30:21]};
 
    assign i1_pcall_12b_offset = (i1_pcall_imm[12]) ? (i1_pcall_imm[20:13] == 8'hff) : (i1_pcall_imm[20:13] == 8'h0);
 
-   assign i1_pcall_case  = i1_pcall_12b_offset & i1_dp_raw.imm20 & i1r.rd[4:0]!=5'b0;
-   assign i1_pja_case    = i1_pcall_12b_offset & i1_dp_raw.imm20 & i1r.rd[4:0]==5'b0;
+   assign i1_pcall_case  = i1_pcall_12b_offset & i1_dp_raw.imm20 & i1r.rd[5:0]!=6'b0;
+   assign i1_pja_case    = i1_pcall_12b_offset & i1_dp_raw.imm20 & i1r.rd[5:0]==6'b0;
 
 
    assign i0_pcall_raw = i0_dp_raw.jal &   i0_pcall_case;   // this includes ja
@@ -1105,8 +1102,8 @@ end : cam_array
 
    //
 
-   assign i0_pret_case = (i0_dp_raw.jal & i0_dp_raw.imm12 & i0r.rd[4:0]==5'b0 & i0r.rs1[4:0]==5'b1);  // jalr with rd==0, rs1==1 is a ret
-   assign i1_pret_case = (i1_dp_raw.jal & i1_dp_raw.imm12 & i1r.rd[4:0]==5'b0 & i1r.rs1[4:0]==5'b1);
+   assign i0_pret_case = (i0_dp_raw.jal & i0_dp_raw.imm12 & i0r.rd[5:0]==6'b0 & i0r.rs1[5:0]==6'b1);  // jalr with rd==0, rs1==1 is a ret
+   assign i1_pret_case = (i1_dp_raw.jal & i1_dp_raw.imm12 & i1r.rd[5:0]==6'b0 & i1r.rs1[5:0]==6'b1);
 
    assign i0_pret_raw = i0_dp_raw.jal &   i0_pret_case;
    assign i0_pret    = i0_dp.jal     &   i0_pret_case;
@@ -1209,21 +1206,20 @@ end : cam_array
 
 
    // defined register packet
-   // TODO(FPU): extend register address by 1 bit to indicate if it is FP or integer register
-   assign i0r.rs1[4:0] = i0[19:15];
-   assign i0r.rs2[4:0] = i0[24:20];
-   assign i0r.rs3[4:0] = i0[31:27];
-   assign i0r.rd[4:0] = i0[11:7];
+   assign i0r.rs1[5:0] = {i0_dp.fp_rs1, i0[19:15]};
+   assign i0r.rs2[5:0] = {i0_dp.fp_rs2, i0[24:20]};
+   assign i0r.rs3[5:0] = {i0_dp.fp_rs3, i0[31:27]};
+   assign i0r.rd[5:0]  = {i0_dp.fp_rd,  i0[11:7]};
 
-   assign i1r.rs1[4:0] = i1[19:15];
-   assign i1r.rs2[4:0] = i1[24:20];
-   assign i1r.rs3[4:0] = i1[31:27];
-   assign i1r.rd[4:0] = i1[11:7];
+   assign i1r.rs1[5:0] = {i1_dp.fp_rs1, i1[19:15]};
+   assign i1r.rs2[5:0] = {i1_dp.fp_rs2, i1[24:20]};
+   assign i1r.rs3[5:0] = {i1_dp.fp_rs3, i1[31:27]};
+   assign i1r.rd[5:0]  = {i1_dp.fp_rd,  i1[11:7]};
 
 
-   assign dec_i0_rs1_en_d = i0_dp.rs1 & (i0r.rs1[4:0] != 5'd0);  // if rs1_en=0 then read will be all 0's
-   assign dec_i0_rs2_en_d = i0_dp.rs2 & (i0r.rs2[4:0] != 5'd0);
-   assign i0_rd_en_d =  i0_dp.rd & (i0r.rd[4:0] != 5'd0);
+   assign dec_i0_rs1_en_d = i0_dp.rs1 & (i0r.rs1[5:0] != 6'd0);  // if rs1_en=0 then read will be all 0's
+   assign dec_i0_rs2_en_d = i0_dp.rs2 & (i0r.rs2[5:0] != 6'd0);
+   assign i0_rd_en_d =  i0_dp.rd & (i0r.rd[5:0] != 6'd0);
 
    assign dec_i0_rs1_d[4:0] = i0r.rs1[4:0];
    assign dec_i0_rs2_d[4:0] = i0r.rs2[4:0];
@@ -1357,9 +1353,9 @@ end : cam_array
    assign dec_i0_br_immed_d[12:1] = (i0_ap.predict_nt & ~i0_dp.jal) ? i0_br_offset[11:0] : {10'b0,i0_ap_pc4,i0_ap_pc2};
 
 
-   assign dec_i1_rs1_en_d = i1_dp.rs1 & (i1r.rs1[4:0] != 5'd0);
-   assign dec_i1_rs2_en_d = i1_dp.rs2 & (i1r.rs2[4:0] != 5'd0);
-   assign i1_rd_en_d =  i1_dp.rd & (i1r.rd[4:0] != 5'd0);
+   assign dec_i1_rs1_en_d = i1_dp.rs1 & (i1r.rs1[5:0] != 6'd0);
+   assign dec_i1_rs2_en_d = i1_dp.rs2 & (i1r.rs2[5:0] != 6'd0);
+   assign i1_rd_en_d =  i1_dp.rd & (i1r.rd[5:0] != 6'd0);
 
    assign dec_i1_rs1_d[4:0] = i1r.rs1[4:0];
    assign dec_i1_rs2_d[4:0] = i1r.rs2[4:0];
@@ -1404,8 +1400,8 @@ end : cam_array
    assign i0_store_stall_d =  i0_dp.store & (lsu_store_stall_any | dma_dccm_stall_any);
    assign i1_store_stall_d =  i1_dp.store & (lsu_store_stall_any | dma_dccm_stall_any);
 
-   assign i1_depend_i0_d = ((dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs1[4:0] == i0r.rd[4:0])) |
-                           ((dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs2[4:0] == i0r.rd[4:0]));
+   assign i1_depend_i0_d = ((dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs1[5:0] == i0r.rd[5:0])) |
+                           ((dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs2[5:0] == i0r.rd[5:0]));
 
 
 
@@ -1613,78 +1609,78 @@ end : cam_array
 
 
 
-   assign i0_rs1_depend_i0_e1 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_e2 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_e3 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_e4 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i0_wb = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i0_e1 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e1d.i0v & (e1d.i0rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i0_e2 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e2d.i0v & (e2d.i0rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i0_e3 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e3d.i0v & (e3d.i0rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i0_e4 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e4d.i0v & (e4d.i0rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i0_wb = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & wbd.i0v & (wbd.i0rd[5:0] == i0r.rs1[5:0]);
 
-   assign i0_rs1_depend_i1_e1 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_e2 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_e3 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_e4 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i0r.rs1[4:0]);
-   assign i0_rs1_depend_i1_wb = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs1[4:0]);
+   assign i0_rs1_depend_i1_e1 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e1d.i1v & (e1d.i1rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i1_e2 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e2d.i1v & (e2d.i1rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i1_e3 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e3d.i1v & (e3d.i1rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i1_e4 = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & e4d.i1v & (e4d.i1rd[5:0] == i0r.rs1[5:0]);
+   assign i0_rs1_depend_i1_wb = (dec_i0_rs1_en_d | dec_i0_fp_rs1_en_d) & wbd.i1v & (wbd.i1rd[5:0] == i0r.rs1[5:0]);
 
-   assign i0_rs2_depend_i0_e1 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_e2 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_e3 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_e4 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i0_wb = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i0_e1 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e1d.i0v & (e1d.i0rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i0_e2 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e2d.i0v & (e2d.i0rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i0_e3 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e3d.i0v & (e3d.i0rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i0_e4 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e4d.i0v & (e4d.i0rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i0_wb = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & wbd.i0v & (wbd.i0rd[5:0] == i0r.rs2[5:0]);
 
-   assign i0_rs2_depend_i1_e1 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_e2 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_e3 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_e4 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i0r.rs2[4:0]);
-   assign i0_rs2_depend_i1_wb = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs2[4:0]);
+   assign i0_rs2_depend_i1_e1 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e1d.i1v & (e1d.i1rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i1_e2 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e2d.i1v & (e2d.i1rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i1_e3 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e3d.i1v & (e3d.i1rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i1_e4 = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & e4d.i1v & (e4d.i1rd[5:0] == i0r.rs2[5:0]);
+   assign i0_rs2_depend_i1_wb = (dec_i0_rs2_en_d | dec_i0_fp_rs2_en_d) & wbd.i1v & (wbd.i1rd[5:0] == i0r.rs2[5:0]);
 
-   assign i0_rs3_depend_i0_e1 = dec_i0_fp_rs3_en_d & e1d.i0v & (e1d.i0rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i0_e2 = dec_i0_fp_rs3_en_d & e2d.i0v & (e2d.i0rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i0_e3 = dec_i0_fp_rs3_en_d & e3d.i0v & (e3d.i0rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i0_e4 = dec_i0_fp_rs3_en_d & e4d.i0v & (e4d.i0rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i0_wb = dec_i0_fp_rs3_en_d & wbd.i0v & (wbd.i0rd[4:0] == i0r.rs3[4:0]);
+   assign i0_rs3_depend_i0_e1 = dec_i0_fp_rs3_en_d & e1d.i0v & (e1d.i0rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i0_e2 = dec_i0_fp_rs3_en_d & e2d.i0v & (e2d.i0rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i0_e3 = dec_i0_fp_rs3_en_d & e3d.i0v & (e3d.i0rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i0_e4 = dec_i0_fp_rs3_en_d & e4d.i0v & (e4d.i0rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i0_wb = dec_i0_fp_rs3_en_d & wbd.i0v & (wbd.i0rd[5:0] == i0r.rs3[5:0]);
 
-   assign i0_rs3_depend_i1_e1 = dec_i0_fp_rs3_en_d & e1d.i1v & (e1d.i1rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i1_e2 = dec_i0_fp_rs3_en_d & e2d.i1v & (e2d.i1rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i1_e3 = dec_i0_fp_rs3_en_d & e3d.i1v & (e3d.i1rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i1_e4 = dec_i0_fp_rs3_en_d & e4d.i1v & (e4d.i1rd[4:0] == i0r.rs3[4:0]);
-   assign i0_rs3_depend_i1_wb = dec_i0_fp_rs3_en_d & wbd.i1v & (wbd.i1rd[4:0] == i0r.rs3[4:0]);
+   assign i0_rs3_depend_i1_e1 = dec_i0_fp_rs3_en_d & e1d.i1v & (e1d.i1rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i1_e2 = dec_i0_fp_rs3_en_d & e2d.i1v & (e2d.i1rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i1_e3 = dec_i0_fp_rs3_en_d & e3d.i1v & (e3d.i1rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i1_e4 = dec_i0_fp_rs3_en_d & e4d.i1v & (e4d.i1rd[5:0] == i0r.rs3[5:0]);
+   assign i0_rs3_depend_i1_wb = dec_i0_fp_rs3_en_d & wbd.i1v & (wbd.i1rd[5:0] == i0r.rs3[5:0]);
 
 
-   assign i1_rs1_depend_i0_e1 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_e2 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_e3 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_e4 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i0_wb = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i0_e1 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e1d.i0v & (e1d.i0rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i0_e2 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e2d.i0v & (e2d.i0rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i0_e3 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e3d.i0v & (e3d.i0rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i0_e4 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e4d.i0v & (e4d.i0rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i0_wb = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & wbd.i0v & (wbd.i0rd[5:0] == i1r.rs1[5:0]);
 
-   assign i1_rs1_depend_i1_e1 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_e2 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_e3 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_e4 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i1r.rs1[4:0]);
-   assign i1_rs1_depend_i1_wb = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i1r.rs1[4:0]);
+   assign i1_rs1_depend_i1_e1 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e1d.i1v & (e1d.i1rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i1_e2 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e2d.i1v & (e2d.i1rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i1_e3 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e3d.i1v & (e3d.i1rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i1_e4 = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & e4d.i1v & (e4d.i1rd[5:0] == i1r.rs1[5:0]);
+   assign i1_rs1_depend_i1_wb = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & wbd.i1v & (wbd.i1rd[5:0] == i1r.rs1[5:0]);
 
-   assign i1_rs2_depend_i0_e1 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_e2 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_e3 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e3d.i0v & (e3d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_e4 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e4d.i0v & (e4d.i0rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i0_wb = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & wbd.i0v & (wbd.i0rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i0_e1 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e1d.i0v & (e1d.i0rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i0_e2 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e2d.i0v & (e2d.i0rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i0_e3 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e3d.i0v & (e3d.i0rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i0_e4 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e4d.i0v & (e4d.i0rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i0_wb = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & wbd.i0v & (wbd.i0rd[5:0] == i1r.rs2[5:0]);
 
-   assign i1_rs2_depend_i1_e1 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e1d.i1v & (e1d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_e2 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e2d.i1v & (e2d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_e3 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e3d.i1v & (e3d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_e4 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e4d.i1v & (e4d.i1rd[4:0] == i1r.rs2[4:0]);
-   assign i1_rs2_depend_i1_wb = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & wbd.i1v & (wbd.i1rd[4:0] == i1r.rs2[4:0]);
+   assign i1_rs2_depend_i1_e1 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e1d.i1v & (e1d.i1rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i1_e2 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e2d.i1v & (e2d.i1rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i1_e3 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e3d.i1v & (e3d.i1rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i1_e4 = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & e4d.i1v & (e4d.i1rd[5:0] == i1r.rs2[5:0]);
+   assign i1_rs2_depend_i1_wb = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & wbd.i1v & (wbd.i1rd[5:0] == i1r.rs2[5:0]);
 
-   assign i1_rs3_depend_i0_e1 = dec_i1_fp_rs3_en_d & e1d.i0v & (e1d.i0rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i0_e2 = dec_i1_fp_rs3_en_d & e2d.i0v & (e2d.i0rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i0_e3 = dec_i1_fp_rs3_en_d & e3d.i0v & (e3d.i0rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i0_e4 = dec_i1_fp_rs3_en_d & e4d.i0v & (e4d.i0rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i0_wb = dec_i1_fp_rs3_en_d & wbd.i0v & (wbd.i0rd[4:0] == i1r.rs3[4:0]);
+   assign i1_rs3_depend_i0_e1 = dec_i1_fp_rs3_en_d & e1d.i0v & (e1d.i0rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i0_e2 = dec_i1_fp_rs3_en_d & e2d.i0v & (e2d.i0rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i0_e3 = dec_i1_fp_rs3_en_d & e3d.i0v & (e3d.i0rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i0_e4 = dec_i1_fp_rs3_en_d & e4d.i0v & (e4d.i0rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i0_wb = dec_i1_fp_rs3_en_d & wbd.i0v & (wbd.i0rd[5:0] == i1r.rs3[5:0]);
 
-   assign i1_rs3_depend_i1_e1 = dec_i1_fp_rs3_en_d & e1d.i1v & (e1d.i1rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i1_e2 = dec_i1_fp_rs3_en_d & e2d.i1v & (e2d.i1rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i1_e3 = dec_i1_fp_rs3_en_d & e3d.i1v & (e3d.i1rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i1_e4 = dec_i1_fp_rs3_en_d & e4d.i1v & (e4d.i1rd[4:0] == i1r.rs3[4:0]);
-   assign i1_rs3_depend_i1_wb = dec_i1_fp_rs3_en_d & wbd.i1v & (wbd.i1rd[4:0] == i1r.rs3[4:0]);
+   assign i1_rs3_depend_i1_e1 = dec_i1_fp_rs3_en_d & e1d.i1v & (e1d.i1rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i1_e2 = dec_i1_fp_rs3_en_d & e2d.i1v & (e2d.i1rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i1_e3 = dec_i1_fp_rs3_en_d & e3d.i1v & (e3d.i1rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i1_e4 = dec_i1_fp_rs3_en_d & e4d.i1v & (e4d.i1rd[5:0] == i1r.rs3[5:0]);
+   assign i1_rs3_depend_i1_wb = dec_i1_fp_rs3_en_d & wbd.i1v & (wbd.i1rd[5:0] == i1r.rs3[5:0]);
 
 
 
@@ -1763,9 +1759,9 @@ end : cam_array
 // define bypasses for e3 stage before secondary alu's
 
 
-   assign i1_rs1_depend_i0_d = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs1[4:0] == i0r.rd[4:0]);
-   assign i1_rs2_depend_i0_d = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs2[4:0] == i0r.rd[4:0]);
-   assign i1_rs3_depend_i0_d = dec_i1_fp_rs3_en_d                     & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs3[4:0] == i0r.rd[4:0]);
+   assign i1_rs1_depend_i0_d = (dec_i1_rs1_en_d | dec_i1_fp_rs1_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs1[5:0] == i0r.rd[5:0]);
+   assign i1_rs2_depend_i0_d = (dec_i1_rs2_en_d | dec_i1_fp_rs2_en_d) & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs2[5:0] == i0r.rd[5:0]);
+   assign i1_rs3_depend_i0_d = dec_i1_fp_rs3_en_d                     & (i0_dp.rd | i0_dp.fp_rd) & (i1r.rs3[5:0] == i0r.rd[5:0]);
 
 
 // i0
@@ -2263,9 +2259,8 @@ end : cam_array
    rvdffs #( $bits(class_pkt_t) ) i1_wbc_ff (.*, .en(i0_wb_ctl_en), .clk(active_clk), .din(i1_e4c),    .dout(i1_wbc));
 
 
-   assign dd.i0rd[4:0] = i0r.rd[4:0];
+   assign dd.i0rd[5:0] = i0r.rd[5:0];
    assign dd.i0v = (i0_rd_en_d | i0_fp_rd_en_d) & i0_legal_decode_d;
-   assign dd.i0vfp = i0_fp_rd_en_d;
    assign dd.i0valid =              dec_i0_decode_d;  // has flush_final_e3
 
    assign dd.i0mul = i0_dp.mul & i0_legal_decode_d;
@@ -2276,7 +2271,7 @@ end : cam_array
    assign dd.i0secondary = i0_secondary_d & i0_legal_decode_d;
 
 
-   assign dd.i1rd[4:0] = i1r.rd[4:0];
+   assign dd.i1rd[5:0] = i1r.rd[5:0];
    assign dd.i1v = i1_rd_en_d & dec_i1_decode_d;
    assign dd.i1valid =              dec_i1_decode_d;
    assign dd.i1mul = i1_dp.mul;
@@ -2399,8 +2394,9 @@ end : cam_array
 
 
       e4d_in.i0rd[4:0] = (exu_div_finish) ? div_waddr_wb[4:0] : (exu_fpu_finish) ? fpu_waddr_wb[4:0] : e4d.i0rd[4:0];
+      e4d_in.i0rd[5] = exu_fpu_finish ? fpu_waddr_wb[5] : 0;
 
-      e4d_in.i0v = (e4d.i0v         & ~(e4d.i0div | e4d.i0fpu) & ~flush_lower_wb) | (exu_div_finish & div_waddr_wb[4:0]!=5'b0) | exu_fpu_finish;
+      e4d_in.i0v = (e4d.i0v         & ~(e4d.i0div | e4d.i0fpu) & ~flush_lower_wb) | (exu_div_finish & div_waddr_wb[4:0]!=5'b0) | (exu_fpu_finish & fpu_waddr_wb[5:0]!=6'b0);
       e4d_in.i0valid = (e4d.i0valid                            & ~flush_lower_wb) | exu_div_finish | exu_fpu_finish;
       // qual the following with div finish; necessary for divides with early exit
       e4d_in.i0secondary = e4d.i0secondary & ~flush_lower_wb & ~(exu_div_finish | exu_fpu_finish);
@@ -2419,9 +2415,9 @@ end : cam_array
    assign dec_i0_waddr_wb[4:0] = wbd.i0rd[4:0];
 
    // squash same write, take last write assuming we don't kill the I1 write for some reason.
-   assign        i0_wen_wb = wbd.i0v & ~(~dec_tlu_i1_kill_writeb_wb & ~i1_load_kill_wen & wbd.i0v & wbd.i1v & (wbd.i0rd[4:0] == wbd.i1rd[4:0])) & ~dec_tlu_i0_kill_writeb_wb;
-   assign    dec_i0_wen_wb = i0_wen_wb & ~wbd.i0vfp & ~i0_load_kill_wen;  // don't write a nonblock load 1st time down the pipe
-   assign dec_i0_fp_wen_wb = i0_wen_wb &  wbd.i0vfp & ~i0_load_kill_wen;
+   assign        i0_wen_wb = wbd.i0v & ~(~dec_tlu_i1_kill_writeb_wb & ~i1_load_kill_wen & wbd.i0v & wbd.i1v & (wbd.i0rd[5:0] == wbd.i1rd[5:0])) & ~dec_tlu_i0_kill_writeb_wb;
+   assign    dec_i0_wen_wb = i0_wen_wb & ~wbd.i0rd[5] & ~i0_load_kill_wen;  // don't write a nonblock load 1st time down the pipe
+   assign dec_i0_fp_wen_wb = i0_wen_wb &  wbd.i0rd[5] & ~i0_load_kill_wen;
 
    assign dec_i0_wdata_wb[31:0] = i0_result_wb[31:0];
 
@@ -2463,7 +2459,7 @@ end : cam_array
 
    rvdffs #(4) fputriggerff (.*, .en(i0_fpu_decode_d), .clk(active_clk), .din(dec_i0_trigger_match_d[3:0]), .dout(fpu_trigger[3:0]));
 
-   rvdffs #(5) fpuwbaddrff (.*, .en(i0_fpu_decode_d), .clk(active_clk), .din(i0r.rd[4:0]), .dout(fpu_waddr_wb[4:0]));
+   rvdffs #(6) fpuwbaddrff (.*, .en(i0_fpu_decode_d), .clk(active_clk), .din(i0r.rd[5:0]), .dout(fpu_waddr_wb[5:0]));
 
    // active_clk -> used for clockgating for wb stage ctl logic
    rvdff  #(1) fpuwbff (.*, .clk(active_clk), .din(exu_fpu_finish), .dout(fpu_wen_wb));
