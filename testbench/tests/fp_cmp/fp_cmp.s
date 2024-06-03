@@ -15,6 +15,7 @@ _start:
     flw f2, 0(x5)
 
     // Test comparisons
+    // f1 = 1.0, f2 = 2.0, f3 = 1.0
     feq.s  x1, f1, f3 // x1 = 1.0 == 1.0 = 1
     feq.s  x1, f1, f2 // x1 = 1.0 == 2.0 = 0
     fle.s  x1, f1, f2 // x1 = 1.0 <= 2.0 = 1
@@ -22,9 +23,6 @@ _start:
     fle.s  x1, f1, f3 // x1 = 1.0 <= 1.0 = 1
     flt.s  x1, f2, f1 // x1 = 2.0 <  1.0 = 0
     flt.s  x1, f1, f2 // x1 = 1.0 <  2.0 = 1
-
-    fclass.s x5, f1
-
 
 
 // Write 0xff to STDOUT for TB to terminate test.
