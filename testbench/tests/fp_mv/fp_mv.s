@@ -10,8 +10,8 @@ _start:
     la x5, value1
     flw f1, 0(x5)
 
-    fmv.x.w x1, f1
-    fmv.w.x f2, x1
+    fmv.x.w x1, f1 # f1 = 1.0        -> x1 = 0x3F800000
+    fmv.w.x f2, x1 # x1 = 0x3F800000 -> f2 = 1.0
 
 
 

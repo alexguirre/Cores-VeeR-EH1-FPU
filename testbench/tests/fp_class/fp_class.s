@@ -17,7 +17,7 @@ _start:
 
     fclass.s x1, f1   // f1 = 1.0 -> x1 = 0x40   (bit 6, positive normal number)
     fclass.s x1, f2   // f2 = NaN -> x1 = 0x200  (bit 9, quiet NaN)
-    fclass.s x1, f3   // f1 = Inf -> x1 = 0x80   (bit 7, positive infinity)
+    fclass.s x1, f3   // f3 = Inf -> x1 = 0x80   (bit 7, positive infinity)
 
 
 // Write 0xff to STDOUT for TB to terminate test.

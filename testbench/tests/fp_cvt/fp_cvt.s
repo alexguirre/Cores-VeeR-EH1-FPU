@@ -10,19 +10,11 @@ _start:
     la x5, value1
     flw f1, 0(x5)
 
-    # FP to signed int     f1 = -1234.5 -> x1 = -1234   +  FFLAGS NX (inexact)
-    fcvt.w.s  x1, f1
-    # signed int to FP     x1 = -1234   -> f2 = -1234.0
-    fcvt.s.w  f2, x1
+    fcvt.w.s  x1, f1 # FP to signed int    f1 = -1234.5 -> x1 = -1234   +  FFLAGS NX (inexact)
+    fcvt.s.w  f2, x1 # signed int to FP    x1 = -1234   -> f2 = -1234.0
 
-    # FP to unsigned int   f1 = -1234.5 -> x2 = 0       +  FFLAGS NV (invalid operation)
-    fcvt.wu.s x2, f1
-    # unsigned int to FP   x2 = 0       -> f2 = 0.0
-    fcvt.s.wu f2, x2
-
-
-    fcvt.s.w  f1, x0       # f1 = 0.0
-
+    fcvt.wu.s x2, f1 # FP to unsigned int  f1 = -1234.5 -> x2 = 0       +  FFLAGS NV (invalid operation)
+    fcvt.s.wu f2, x2 # unsigned int to FP  x2 = 0       -> f2 = 0.0
 
 
 // Write 0xff to STDOUT for TB to terminate test.
