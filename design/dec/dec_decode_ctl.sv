@@ -831,8 +831,14 @@ module dec_decode_ctl
    end
 
 
+   // TODO(FPU): temporarily disabled cam_reset_same_dest_wb (the `& 0`) because in some cases it
+   // triggers when it shouldn't with FP instructions.Something like this, the flw is reset:
+   //   fadd f2, ...
+   //   flw  f2, ...
+   //   fadd ..., ..., f2
+   // Actual example is in RISCOF tests: fadd_b1-01.S inst_25
    assign cam_reset_same_dest_wb = wbd.i0v & wbd.i1v & (wbd.i0rd[5:0] == wbd.i1rd[5:0]) &
-                                   wbd.i0load & nonblock_load_valid_wb & ~dec_tlu_i0_kill_writeb_wb & ~dec_tlu_i1_kill_writeb_wb;
+                                   wbd.i0load & nonblock_load_valid_wb & ~dec_tlu_i0_kill_writeb_wb & ~dec_tlu_i1_kill_writeb_wb & 0;
 
 
    assign cam_write          = lsu_nonblock_load_valid_dc3;
@@ -1882,6 +1888,18 @@ module dec_decode_ctl
                                                   (i0_rs2_depend_i1_wb) ? { i1_wbc, 4'd9 } :
                                                   (i0_rs2_depend_i0_wb) ? { i0_wbc, 4'd10 } : '0;
 
+   assign {i0_rs3_class_d, i0_rs3_depth_d[3:0]} =
+                                                  (i0_rs3_depend_i1_e1) ? { i1_e1c, 4'd1 } :
+                                                  (i0_rs3_depend_i0_e1) ? { i0_e1c, 4'd2 } :
+                                                  (i0_rs3_depend_i1_e2) ? { i1_e2c, 4'd3 } :
+                                                  (i0_rs3_depend_i0_e2) ? { i0_e2c, 4'd4 } :
+                                                  (i0_rs3_depend_i1_e3) ? { i1_e3c, 4'd5 } :
+                                                  (i0_rs3_depend_i0_e3) ? { i0_e3c, 4'd6 } :
+                                                  (i0_rs3_depend_i1_e4) ? { i1_e4c, 4'd7 } :
+                                                  (i0_rs3_depend_i0_e4) ? { i0_e4c, 4'd8 } :
+                                                  (i0_rs3_depend_i1_wb) ? { i1_wbc, 4'd9 } :
+                                                  (i0_rs3_depend_i0_wb) ? { i0_wbc, 4'd10 } : '0;
+
    assign {i1_rs1_class_d, i1_rs1_depth_d[3:0]} =
                                                   (i1_rs1_depend_i1_e1) ? { i1_e1c, 4'd1 } :
                                                   (i1_rs1_depend_i0_e1) ? { i0_e1c, 4'd2 } :
@@ -2198,7 +2216,7 @@ module dec_decode_ctl
 
    always_comb begin
 
-      if (exu_div_finish | exu_fpu_finish)    // wipe data for exu_div_finish - safer
+      if (exu_div_finish)    // wipe data for exu_div_finish - safer
         dec_tlu_packet_e4 = '0;
       else
         dec_tlu_packet_e4 = e4t;
